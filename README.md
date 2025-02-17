@@ -1,4 +1,5 @@
-# Task Management App 📝 (Work in progress) | Full-Stack (React + .NET Core + SQL)
+# Task Management App 📝| Full-Stack (React + .NET Core + SQL)
+Status: Work in progress.
 # 🚀 A modern task management application built with React, .NET Core, and SQL Server. Supports user authentication, task tracking, drag-and-drop, and real-time updates.
 
 # 🔹 Features:
