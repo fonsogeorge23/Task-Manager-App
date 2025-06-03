@@ -1,11 +1,10 @@
 # =========================
 # .NET Core API Ignores
 # =========================
-TaskManagementAPI/bin/
-TaskManagementAPI/obj/
-TaskManagementAPI/*.user
-TaskManagementAPI/*.suo
-TaskManagementAPI/*.http
+TaskManagementServer/TaskManagementAPI/obj/
+TaskManagementServer/TaskManagementAPI/*.user
+TaskManagementServer/TaskManagementAPI/*.suo
+TaskManagementServer/TaskManagementAPI/*.http
 
 # =========================
 # IDE/editor junk
