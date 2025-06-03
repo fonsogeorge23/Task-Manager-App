@@ -1,0 +1,21 @@
+# =========================
+# .NET Core API Ignores
+# =========================
+TaskManagementAPI/bin/
+TaskManagementAPI/obj/
+TaskManagementAPI/*.user
+TaskManagementAPI/*.suo
+TaskManagementAPI/*.http
+
+# =========================
+# IDE/editor junk
+# =========================
+.vscode/
+.idea/
+
+# =========================
+# Secrets
+# =========================
+*.env
+*.pfx
+secrets.json
