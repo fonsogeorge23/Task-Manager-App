@@ -1,6 +1,7 @@
 # =========================
 # .NET Core API Ignores
 # =========================
+TaskManagementServer/TaskManagementAPI/bin/
 TaskManagementServer/TaskManagementAPI/obj/
 TaskManagementServer/TaskManagementAPI/*.user
 TaskManagementServer/TaskManagementAPI/*.suo
