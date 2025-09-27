@@ -1,0 +1,14 @@
+﻿using TaskManagementAPI.Static;
+
+namespace TaskManagementAPI.Models.DTOs
+{
+    public class TaskCreateDto
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty ;
+        public CurrentStatus Status { get; set; } = CurrentStatus.Pending;
+        public PriorityLevel PriorityLevel { get; set; } = PriorityLevel.Medium;
+        public DateTime DueDate { get; set; }
+        public int UserId { get; set; } // The user who owns this task
+    }
+}

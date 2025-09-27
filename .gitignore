@@ -1,0 +1,18 @@
+# Ignore build artifacts and VS files 
+
+# Visual Studio & Build Artifacts
+###################################
+[Dd]ebug/
+[Rr]elease/
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio User/Temporary Files
+###################################
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# The folder causing your error
+.vs/
