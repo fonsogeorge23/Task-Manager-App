@@ -1,8 +1,8 @@
 ﻿using TaskManagementAPI.Static;
 
-namespace TaskManagementAPI.Models.DTOs
+namespace TaskManagementAPI.DTOs.Requests
 {
-    public class TaskCreateDto
+    public class TaskCreateRequest
     {
         public string Title { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty ;

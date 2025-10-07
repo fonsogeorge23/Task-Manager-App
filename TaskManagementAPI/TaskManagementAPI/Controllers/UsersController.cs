@@ -1,9 +1,9 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
-using TaskManagementAPI.Data;
-using TaskManagementAPI.Models;
-using TaskManagementAPI.Models.DTOs;
+﻿using Microsoft.AspNetCore.Mvc;
+using TaskManagementAPI.DTOs.Requests;
+using TaskManagementAPI.DTOs.Responses;
+using TaskManagementAPI.Repositories.Interfaces;
+using TaskManagementAPI.Services.Interfaces;
+using LoginRequest = TaskManagementAPI.DTOs.Requests.LoginRequest;
 
 namespace TaskManagementAPI.Controllers
 {
@@ -11,39 +11,69 @@ namespace TaskManagementAPI.Controllers
     [ApiController]
     public class UsersController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IUserService _userService;
+        private readonly IJwtService _jwtService;
+        private readonly IUserRepository _userRepository;
 
-        public UsersController(AppDbContext context)
+        public UsersController(IUserService userService, IJwtService jwtService, IUserRepository userRepository)
         {
-            _context = context;
+            _userService = userService;
+            _jwtService = jwtService;
+            _userRepository = userRepository;
         }
 
-        // POST: api/users
-        [HttpPost]
-        public async Task<IActionResult> CreateUser([FromBody]UserCreateDto user)
+        // =====================
+        // REGISTER NEW USER
+        // =====================
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] UserCreateRequest request)
         {
-            var entity = new User
+            // Check if username already exists
+            var existingUser = await _userRepository.GetUserByUsernameAsync(request.Username);
+            if (existingUser != null)
+                return BadRequest("Username already exists");
+
+            // Create user
+            var userResponse = await _userService.CreateUserAsync(request);
+
+            // Returns 201 Created with the created user
+            return CreatedAtAction(nameof(Register), new { id = userResponse.Id }, userResponse);
+        }
+
+        // =====================
+        // LOGIN USER
+        // =====================
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginRequest request)
+        {
+            // Get user entity from DB (to verify password)
+            var userEntity = await _userRepository.GetUserByUsernameAsync(request.Username);
+            if (userEntity == null)
+                return Unauthorized("Invalid username or password");
+
+            // Verify password
+            bool valid = BCrypt.Net.BCrypt.Verify(request.Password, userEntity.PasswordHash);
+            if (!valid)
+                return Unauthorized("Invalid username or password");
+
+            // Generate JWT token
+            var token = _jwtService.GenerateToken(
+                userEntity.Id,
+                userEntity.Username,
+                userEntity.Role.ToString()
+            );
+
+            // Map User entity to UserResponse DTO
+            var userResponse = new UserResponse
             {
-                Username = user.UserName,
-                Email = user.Email,
-                PasswordHash = user.Password,
-                Role = user.Role
+                Id = userEntity.Id,
+                UserName = userEntity.Username,
+                Email = userEntity.Email,
+                Role = userEntity.Role
             };
 
-            _context.Users.Add(entity);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetUser), new { id = entity.Id }, entity);
-        }
-
-        // GET: api/users/1
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetUser(int id)
-        {
-            var user = await _context.Users.FindAsync(id);
-            if (user == null) return NotFound();
-
-            return Ok(user);
+            // Return token + user info
+            return Ok(new { Token = token, User = userResponse });
         }
     }
 }

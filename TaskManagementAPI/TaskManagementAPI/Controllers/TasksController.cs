@@ -2,8 +2,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TaskManagementAPI.Data;
+using TaskManagementAPI.DTOs.Requests;
 using TaskManagementAPI.Models;
-using TaskManagementAPI.Models.DTOs;
 
 namespace TaskManagementAPI.Controllers
 {
@@ -18,7 +18,7 @@ namespace TaskManagementAPI.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateTask(TaskCreateDto dto)
+        public async Task<IActionResult> CreateTask(TaskCreateRequest dto)
         {
             var user = await _context.Users.FindAsync(dto.UserId);
             if (user == null)
