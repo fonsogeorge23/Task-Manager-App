@@ -50,5 +50,15 @@ namespace TaskManagementAPI.Services.Implementations
                 Role = user.Role
             };
         }
+
+        public async Task<User> AuthenticateUserAsync(string username, string password)
+        {
+            var user = await _userRepository.GetUserByUsernameAsync(username);
+            if (user == null || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
+            {
+                return null;
+            }
+            return user;
+        }
     }
 }

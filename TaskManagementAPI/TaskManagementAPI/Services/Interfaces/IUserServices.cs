@@ -8,5 +8,6 @@ namespace TaskManagementAPI.Services.Interfaces
     {
         Task<UserResponse?> GetUserByUsernameAsync(string username);
         Task<UserResponse> CreateUserAsync(UserCreateRequest request);
+        Task<User> AuthenticateUserAsync(string username, string password);
     }
 }
