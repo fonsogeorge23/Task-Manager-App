@@ -10,10 +10,19 @@ using LoginRequest = TaskManagementAPI.DTOs.Requests.LoginRequest;
 
 namespace TaskManagementAPI.Controllers
 {
+    // Minimal DTO structure assumed to be returned by IUserService for authentication
+    public class AuthenticatedUserResponse
+    {
+        public Guid Id { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string Role { get; set; } = "User";
+    }
+
     [Route("api/[controller]")]
     [ApiController]
     public class UsersController : ControllerBase
     {
+        // NOTE: The IUserService implementation needs to be updated with AuthenticateUserAsync.
         private readonly IUserService _userService;
         private readonly IUserRepository _userRepository;
         private readonly IJwtAuthManager _jwtAuthManager;
@@ -43,9 +52,11 @@ namespace TaskManagementAPI.Controllers
             return CreatedAtAction(nameof(Register), new { id = userResponse.Id }, userResponse);
         }
 
-        // Public endpoint to generate token for testing
+        // =====================
+        // LOGIN AND GENERATE TOKEN (Updated)
+        // =====================
         [HttpPost("login")]
-        public async Task<IActionResult> LoginAsync([FromBody] LoginRequest request)
+        public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
             // 1. Authenticate the user (call to the service layer to check credentials)
             // NOTE: This assumes the existence of: Task<AuthenticatedUserResponse> AuthenticateUserAsync(string username, string password)
@@ -65,11 +76,12 @@ namespace TaskManagementAPI.Controllers
                 authenticatedUser.Role.ToString()
             );
 
+            // 3. Return the token and user details
             return Ok(new { Token = token, Username = authenticatedUser.Username, Role = authenticatedUser.Role });
         }
 
         // Debug endpoint to confirm [Authorize] is working
-        [Authorize(Roles ="Admin")]
+        [Authorize]
         [HttpGet("debug-authorize")]
         public IActionResult DebugAuthorize()
         {
@@ -85,22 +97,6 @@ namespace TaskManagementAPI.Controllers
                 UsernameFromToken = username,
                 RoleFromToken = role
             });
-        }
-
-        [Authorize(Roles ="Admin")]
-        [HttpGet("profile")]
-        public IActionResult Profile()
-        {
-            // Extract claims from the JWT token
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
-            var username = User.FindFirstValue(ClaimTypes.Name) ?? User.FindFirstValue(JwtRegisteredClaimNames.UniqueName);
-            var role = User.FindFirstValue(ClaimTypes.Role);
-            
-            return Ok(new { 
-                Message = "This is a protected profile endpoint.",
-                UserId = userId, 
-                Username = username, 
-                Role = role } );
         }
     }
 }

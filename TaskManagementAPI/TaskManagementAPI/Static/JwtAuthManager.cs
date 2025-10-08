@@ -7,9 +7,11 @@ namespace TaskManagementAPI.Static
 {
     public interface IJwtAuthManager
     {
+        // Updated interface method signature
         string GenerateToken(int userId, string username, string role);
     }
-    public class JwtAuthManager: IJwtAuthManager
+
+    public class JwtAuthManager : IJwtAuthManager
     {
         private readonly string _key;
 
@@ -18,6 +20,7 @@ namespace TaskManagementAPI.Static
             _key = key;
         }
 
+        // Updated implementation to include userId, username, and role in the claims
         public string GenerateToken(int userId, string username, string role)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
@@ -36,6 +39,7 @@ namespace TaskManagementAPI.Static
                     // 3. ClaimTypes.Role: Stores the User Role
                     new Claim(ClaimTypes.Role, role)
                 }),
+                // Token expires after 1 hour
                 Expires = DateTime.UtcNow.AddHours(1),
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(tokenKey), SecurityAlgorithms.HmacSha256Signature)
             };
