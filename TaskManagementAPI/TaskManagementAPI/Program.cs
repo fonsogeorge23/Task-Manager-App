@@ -1,6 +1,7 @@
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using TaskManagementAPI.Data;
@@ -11,71 +12,127 @@ using TaskManagementAPI.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+// Define a policy name for CORS
+const string AllowSpecificOrigin = "_allowSpecificOrigin";
 
-// ---------------------------
-// 1. Add Controllers + JSON options
-// ---------------------------
-// We configure JSON so that:
-//   - Enums are returned as strings, not numbers
-//   - camelCase is used for properties (industry standard)
+// 1. Controllers + JSON options
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        // Serialize enums as strings and ignore case when deserializing
+        // Ensures enums are serialized as strings (e.g., "pending" instead of 0)
         options.JsonSerializerOptions.Converters.Add(
             new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false)
         );
     });
 
-// ---------------------------
-// 2. Add DbContext (Database setup)
-// ---------------------------
-// Uses connection string from appsettings.json
+// 2. DbContext
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// ---------------------------
-// 3. Register Repositories & Services (Dependency Injection)
-// ---------------------------
-// Scoped = one instance per request
-// Repository handles DB, Service handles business logic
+// 2.5. CORS Configuration
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(name: AllowSpecificOrigin,
+        policy =>
+        {
+            // Using AllowAnyOrigin for debugging, switch to specific origins in production
+            policy.AllowAnyOrigin()
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        });
+});
+
+// 3. DI: Repos & Services
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserService, UserServices>();
+builder.Services.AddScoped<IJwtService, JwtServices>();
 
+
+// 4. Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+// 5. Authentication Setup
+var jwtKey = builder.Configuration["Jwt:Key"];
+var jwtIssuer = builder.Configuration["Jwt:Issuer"];
+var jwtAudience = builder.Configuration["Jwt:Audience"];
+
+// *** CRITICAL CONFIG LOGGING FOR DEBUGGING ***
+if (string.IsNullOrEmpty(jwtKey) || string.IsNullOrEmpty(jwtIssuer) || string.IsNullOrEmpty(jwtAudience))
+{
+    Console.WriteLine("CONFIG ERROR: One or more JWT configuration values (Key, Issuer, Audience) are missing or null.");
+}
+else
+{
+    Console.WriteLine($"JWT Config Loaded:");
+    Console.WriteLine($"  Issuer: {jwtIssuer}");
+    Console.WriteLine($"  Audience: {jwtAudience}");
+    Console.WriteLine($"  Key Length: {jwtKey.Length}");
+}
+
+// Ensure key is present before proceeding
+if (string.IsNullOrEmpty(jwtKey))
+{
+    throw new InvalidOperationException("Jwt:Key not found. Please check appsettings.json or appsettings.Development.json.");
+}
+
+var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
+// ****************************************************
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
     {
-        options.TokenValidationParameters = new TokenValidationParameters
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtIssuer,
+        ValidAudience = jwtAudience,
+        IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
+        // Small clock skew tolerance for server time differences
+        ClockSkew = TimeSpan.FromMinutes(5)
+    };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnAuthenticationFailed = context =>
         {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(
-                System.Text.Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
-        };
-    });
+            // This message is critical. It will show the exact validation error (e.g., "Signature validation failed")
+            Console.WriteLine("Auth failed: " + context.Exception.Message);
+            return Task.CompletedTask;
+        },
+        OnTokenValidated = context =>
+        {
+            Console.WriteLine("Token validated for: " + context.Principal?.Identity?.Name);
+            return Task.CompletedTask;
+        }
+    };
+});
+
 builder.Services.AddAuthorization();
-builder.Services.AddScoped<IJwtService, JwtServices>();
+
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// Middleware
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
+app.UseHttpsRedirection();
+
+// Apply CORS Policy - MUST be before UseAuthentication/UseAuthorization
+app.UseCors(AllowSpecificOrigin);
+
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseHttpsRedirection();
 app.MapControllers();
-app.Run();
 
+app.Run();
