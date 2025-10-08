@@ -86,5 +86,21 @@ namespace TaskManagementAPI.Controllers
                 RoleFromToken = role
             });
         }
+
+        [Authorize(Roles ="Admin")]
+        [HttpGet("profile")]
+        public IActionResult Profile()
+        {
+            // Extract claims from the JWT token
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+            var username = User.FindFirstValue(ClaimTypes.Name) ?? User.FindFirstValue(JwtRegisteredClaimNames.UniqueName);
+            var role = User.FindFirstValue(ClaimTypes.Role);
+            
+            return Ok(new { 
+                Message = "This is a protected profile endpoint.",
+                UserId = userId, 
+                Username = username, 
+                Role = role } );
+        }
     }
 }
