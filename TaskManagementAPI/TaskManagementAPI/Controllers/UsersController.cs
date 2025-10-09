@@ -81,7 +81,7 @@ namespace TaskManagementAPI.Controllers
         }
 
         // Debug endpoint to confirm [Authorize] is working
-        [Authorize]
+        [Authorize(Roles ="Admin")]
         [HttpGet("debug-authorize")]
         public IActionResult DebugAuthorize()
         {
