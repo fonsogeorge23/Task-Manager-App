@@ -1,19 +1,18 @@
 ﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using TaskManagementAPI.Data;
 using TaskManagementAPI.Models;
 using TaskManagementAPI.Repositories.Implementations;
 using TaskManagementAPI.Repositories.Interfaces;
-using TaskManagementAPI.Services.Implementations;
-using TaskManagementAPI.Services.Interfaces;
+using TaskManagementAPI.Services;
 
-namespace TaskManagementAPI.Static
+namespace TaskManagementAPI.Utilities
 {
     public static class ServiceExtensions
     {
+        // Configure and add controllers
         public static void AddCustomControllers(this IServiceCollection services)
         {
             services.AddControllers()
@@ -25,18 +24,21 @@ namespace TaskManagementAPI.Static
                 });
         }
 
+        // Configure and add the database context
         public static void AddDatabase(this IServiceCollection services, IConfiguration config)
         {
             services.AddDbContext<AppDbContext>(options =>
                 options.UseSqlServer(config.GetConnectionString("DefaultConnection")));
         }
 
+        // Register repositories and services for dependency injection
         public static void AddRepositoriesAndServices(this IServiceCollection services)
         {
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IUserService, UserServices>();
         }
 
+        // Configure and add JWT authentication
         public static void AddJwtAuthentication(this IServiceCollection services, IConfiguration config)
         {
             // Bind JwtSettings from appsettings.json

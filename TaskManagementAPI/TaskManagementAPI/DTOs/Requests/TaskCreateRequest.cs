@@ -1,4 +1,4 @@
-﻿using TaskManagementAPI.Static;
+﻿using TaskManagementAPI.Utilities;
 
 namespace TaskManagementAPI.DTOs.Requests
 {

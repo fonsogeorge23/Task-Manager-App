@@ -5,7 +5,7 @@ using System.Security.Claims;
 using System.Text;
 using TaskManagementAPI.Models;
 
-namespace TaskManagementAPI.Static
+namespace TaskManagementAPI.Utilities
 {
     public interface IJwtAuthManager
     {

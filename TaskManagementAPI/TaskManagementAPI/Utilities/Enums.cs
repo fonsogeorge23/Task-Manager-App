@@ -1,4 +1,4 @@
-﻿namespace TaskManagementAPI.Static
+﻿namespace TaskManagementAPI.Utilities
 {
     public enum CurrentStatus
     {
