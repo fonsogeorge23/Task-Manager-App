@@ -4,8 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using TaskManagementAPI.Data;
 using TaskManagementAPI.Models;
-using TaskManagementAPI.Repositories.Implementations;
-using TaskManagementAPI.Repositories.Interfaces;
+using TaskManagementAPI.Repositories;
 using TaskManagementAPI.Services;
 
 namespace TaskManagementAPI.Utilities

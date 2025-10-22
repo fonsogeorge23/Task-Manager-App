@@ -21,13 +21,14 @@ namespace TaskManagementAPI.Utilities
         public JwtAuthManager(IOptions<JwtSettings> jwtSettings)
         {
             _jwtSettings = jwtSettings.Value;
+            _key = _jwtSettings.SecretKey;
         }
 
         // Updated implementation to include userId, username, and role in the claims
         public string GenerateToken(int userId, string username, string role)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
-            var tokenKey = Encoding.UTF8.GetBytes(_jwtSettings.SecretKey);
+            var tokenKey = Encoding.UTF8.GetBytes(_key);
 
             var claims = new[]
             {

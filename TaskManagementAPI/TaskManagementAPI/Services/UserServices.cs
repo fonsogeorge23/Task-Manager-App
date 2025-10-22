@@ -2,7 +2,7 @@
 using TaskManagementAPI.DTOs.Requests;
 using TaskManagementAPI.DTOs.Responses;
 using TaskManagementAPI.Models;
-using TaskManagementAPI.Repositories.Interfaces;
+using TaskManagementAPI.Repositories;
 using TaskManagementAPI.Utilities; // Added using statement for Result<T>
 
 namespace TaskManagementAPI.Services
