@@ -2,7 +2,7 @@
 
 namespace TaskManagementAPI.Models
 {
-    public class TaskItem
+    public class TaskObject
     {
         public int Id { get; set; }
         public string Title { get; set; } = string.Empty;

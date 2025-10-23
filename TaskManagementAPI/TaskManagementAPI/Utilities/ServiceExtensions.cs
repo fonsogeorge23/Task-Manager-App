@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using TaskManagementAPI.Data;
+using TaskManagementAPI.Mappings;
 using TaskManagementAPI.Models;
 using TaskManagementAPI.Repositories;
 using TaskManagementAPI.Services;
@@ -33,8 +34,16 @@ namespace TaskManagementAPI.Utilities
         // Register repositories and services for dependency injection
         public static void AddRepositoriesAndServices(this IServiceCollection services)
         {
+
+            // User repository and service
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IUserService, UserServices>();
+
+            // Task repository and service
+            services.AddScoped<ITaskRepository, TaskRepository>();
+            services.AddScoped<ITaskService, TaskServices>();
+
+            services.AddAutoMapper(typeof(MappingProfile));
         }
 
         // Configure and add JWT authentication

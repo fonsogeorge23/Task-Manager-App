@@ -1,56 +1,38 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using TaskManagementAPI.Data;
 using TaskManagementAPI.DTOs.Requests;
-using TaskManagementAPI.Models;
+using TaskManagementAPI.Services;
 
 namespace TaskManagementAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class TasksController : ControllerBase
+    [Authorize]
+    public class TasksController : BaseController
     {
-        private readonly AppDbContext _context;
-        public TasksController(AppDbContext context)
+        private readonly ITaskService _taskService;
+        public TasksController(ITaskService service)
         {
-            _context = context;
+            _taskService = service;
         }
 
-        [HttpPost]
-        public async Task<IActionResult> CreateTask(TaskCreateRequest dto)
+        [HttpPost("create")]
+        public async Task<IActionResult> CreateTask([FromBody] TaskRequest request)
         {
-            var user = await _context.Users.FindAsync(dto.UserId);
-            if (user == null)
-            {
-                return NotFound($"User with ID {dto.UserId} does not exist.");
-            }
+            request.UserId = UserIdFromToken;
 
-            var task = new TaskItem
-            {
-                Title = dto.Title,
-                Description = dto.Description,
-                Status = dto.Status,
-                Priority = dto.PriorityLevel,
-                DueDate = dto.DueDate,
-                UserId = dto.UserId
-            };
-            
-            _context.Tasks.Add(task);
-            await _context.SaveChangesAsync();
+            var createdTask = await _taskService.CreateTaskAsync(request);
+            return CreatedAtAction(nameof(GetTaskById), new {id = createdTask.Id}, createdTask);
 
-            return CreatedAtAction(nameof(GetTask), new { id = task.Id }, task);
         }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetTask(int id)
+        public async Task<IActionResult> GetTaskById(int id)
         {
-            var task = await _context.Tasks
-                .Include(t => t.User)
-                .FirstOrDefaultAsync(t => t.Id == id);
-
-            if (task == null) return NotFound();
-
+            int userId = UserIdFromToken;
+            var task = await _taskService.GetTaskByIdAsync(id, userId);
+            if (task == null)
+                return NotFound("Task not found or access denied.");
             return Ok(task);
         }
     }

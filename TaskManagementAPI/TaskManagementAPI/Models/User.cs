@@ -13,6 +13,6 @@ namespace TaskManagementAPI.Models
         public UserRole Role { get; set; } = UserRole.User;
 
         // Navigation property for tasks created/owned by the user
-        public ICollection<TaskItem> Tasks { get; set; } = new List<TaskItem>();
+        public ICollection<TaskObject> Tasks { get; set; } = new List<TaskObject>();
     }
 }

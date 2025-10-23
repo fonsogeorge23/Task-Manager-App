@@ -10,7 +10,7 @@ namespace TaskManagementAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class UsersController : ControllerBase
+    public class UsersController : BaseController
     {
         // NOTE: The IUserService implementation needs to be updated with AuthenticateUserAsync.
         private readonly IUserService _userService;
