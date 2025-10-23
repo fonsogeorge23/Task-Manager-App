@@ -20,10 +20,8 @@ namespace TaskManagementAPI.Controllers
         public async Task<IActionResult> CreateTask([FromBody] TaskRequest request)
         {
             request.UserId = UserIdFromToken;
-
             var createdTask = await _taskService.CreateTaskAsync(request);
             return CreatedAtAction(nameof(GetTaskById), new {id = createdTask.Id}, createdTask);
-
         }
 
         [HttpGet("{id}")]

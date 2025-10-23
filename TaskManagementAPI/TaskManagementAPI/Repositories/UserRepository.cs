@@ -6,7 +6,7 @@ namespace TaskManagementAPI.Repositories
 {
     public interface IUserRepository
     {
-        Task AddUserAsync(User user);
+        Task<User> AddUserAsync(User user);
         Task<User?> GetUserByUsernameAsync(string username);
         Task<User?> GetUserByEmailAsync(string email);
     }
@@ -19,10 +19,11 @@ namespace TaskManagementAPI.Repositories
             _context = context;
         }
 
-        public async Task AddUserAsync(User user)
+        public async Task<User> AddUserAsync(User user)
         {
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
+            return user;
         }
 
         public async Task<User?> GetUserByEmailAsync(string email)

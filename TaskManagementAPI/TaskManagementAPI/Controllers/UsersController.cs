@@ -26,7 +26,7 @@ namespace TaskManagementAPI.Controllers
         // REGISTER NEW USER
         // =====================
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] UserCreateRequest request)
+        public async Task<IActionResult> Register([FromBody] UserRequest request)
         {
             // Create user
             var userResponse = await _userService.CreateUserAsync(request);
