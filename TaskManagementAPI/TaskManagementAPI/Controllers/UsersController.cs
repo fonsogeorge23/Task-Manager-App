@@ -28,6 +28,9 @@ namespace TaskManagementAPI.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] UserRequest request)
         {
+            if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+                return BadRequest("Username and password are required.");
+
             // Create user
             var userResponse = await _userService.CreateUserAsync(request);
 
@@ -44,10 +47,10 @@ namespace TaskManagementAPI.Controllers
             // 1. Authenticate the user (call to the service layer to check credentials)
             var authenticatedUser = await _userService.AuthenticateUserAsync(request.Username, request.Password);
 
-            if (authenticatedUser == null)
+            if (!authenticatedUser.IsSuccess)
             {
                 // Authentication failed (e.g., bad username or password)
-                return Unauthorized("Invalid username or password.");
+                return Unauthorized(authenticatedUser.ErrorMessage);
             }
 
             // 2. Generate token using the authenticated user's details
@@ -65,6 +68,31 @@ namespace TaskManagementAPI.Controllers
                 authenticatedUser.Data.Role,
                 });
 
+        }
+
+        // =========================
+        // Get All Users (Admin Only)
+        // =========================
+        [Authorize(Roles ="Admin")]
+        [HttpGet("all")]
+        public async Task<IActionResult> GetAllUsers()
+        {
+            var usersResponse = await _userService.GetAllUsersAsync();
+            return Ok(usersResponse);
+        }
+
+        // ===============
+        // Get user by ID 
+        // ===============
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetUserById(int id)
+        {
+            var userResponse = await _userService.GetUserByIdAsync(id);
+            if (!userResponse.IsSuccess)
+            {
+                return NotFound(userResponse);
+            }
+            return Ok(userResponse);
         }
 
         // Debug endpoint to confirm [Authorize] is working

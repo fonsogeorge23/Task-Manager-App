@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using System;
 using TaskManagementAPI.DTOs.Requests;
 using TaskManagementAPI.DTOs.Responses;
@@ -15,6 +16,15 @@ namespace TaskManagementAPI.Services
 
         // Method to authenticate user 
         Task<Result<UserResponse>> AuthenticateUserAsync(string username, string password);
+
+        // Method to retrieve all users
+        Task<IEnumerable<UserResponse>> GetAllUsersAsync();
+
+        // Method to retrieve user by ID
+        Task<Result<UserResponse>> GetUserByIdAsync(int id);
+
+        // Method to update user
+        Task<Result<UserResponse>> UpdateUserAsync(int id, UserRequest request);
     }
     public class UserServices : IUserService
     {
@@ -27,24 +37,19 @@ namespace TaskManagementAPI.Services
             _mapper = mapper;
         }
 
-        // Updated signature to use the Result<T> pattern
         public async Task<Result<UserResponse>> CreateUserAsync(UserRequest request)
         {
-            // Check if username already exists
-            var existingUser = await _userRepository.GetUserByUsernameAsync(request.Username);
-
-            if (existingUser != null)
+            var validRequest = await ValidateRequestAsync(request);
+            if(!validRequest.IsSuccess)
             {
-                // Return failure result instead of an HTTP BadRequest
-                return Result<UserResponse>.Failure("Username already exists.");
+                return Result<UserResponse>.Failure(validRequest.ErrorMessage);
             }
-
             // Map UserRequest to User entity
-            var user = _mapper.Map<User>(request);
+            var user = _mapper.Map<User>(validRequest.Data);
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
             // Save user to the database
-            var createdUser = await _userRepository.AddUserAsync(user);
+            var createdUser = await _userRepository.RegisterUserAsync(user);
 
             // Map and return success result
             var userResponse = _mapper.Map<UserResponse>(createdUser);
@@ -59,20 +64,89 @@ namespace TaskManagementAPI.Services
             // FIX: Check if the user is null OR if PasswordHash is null/empty BEFORE calling BCrypt.Verify
             if (user == null || string.IsNullOrEmpty(user.PasswordHash))
             {
-                // Failed authentication because user doesn't exist or has an invalid password hash
-                return null;
+                return Result<UserResponse>.Failure("Invalid username or password.");
             }
 
             // Only call BCrypt.Verify if we have a hash to compare against
             if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
             {
-                return null; // Password mismatch
+                return Result<UserResponse>.Failure("Invalid username or password.");
             }
 
             // Successful authentication
             var response = _mapper.Map<UserResponse>(user);
 
             return Result<UserResponse>.Success(response);
+        }
+
+        public async Task<IEnumerable<UserResponse>> GetAllUsersAsync()
+        {
+            var users = await _userRepository.GetAllUsersAsync();
+            return _mapper.Map<IEnumerable<UserResponse>>(users);
+        }
+
+        public async Task<Result<UserResponse>> GetUserByIdAsync(int id)
+        {
+            var user = await _userRepository.GetUserByIdAsync(id);
+            if (user == null)
+            {
+                return Result<UserResponse>.Failure("User not found.");
+            }
+            var userResponse = _mapper.Map<UserResponse>(user);
+            return Result<UserResponse>.Success(userResponse);
+        }
+
+        public async Task<Result<UserResponse>> UpdateUserAsync(int id, UserRequest request)
+        {
+            var existingUser = await _userRepository.GetUserByIdAsync(id);
+            if (existingUser == null)
+            {
+                return Result<UserResponse>.Failure("User not found.");
+            }
+            // Update fields
+            existingUser.Username = request.Username;
+            existingUser.Email = request.Email;
+            // Only update password if provided
+            if (!string.IsNullOrEmpty(request.Password))
+            {
+                existingUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+            }
+            var updatedUser = await _userRepository.UpdateUserAsync(id, existingUser);
+            var userResponse = _mapper.Map<UserResponse>(updatedUser);
+            return Result<UserResponse>.Success(userResponse);
+        }
+
+        // Helper method to validate and assign role
+        private async Task<Result<UserRequest>> ValidateRequestAsync(UserRequest request)
+        {
+            if (request == null)
+            {
+                return Result<UserRequest>.Failure("Request cannot be null.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+            {
+                return Result<UserRequest>.Failure("Username and password are required.");
+            }
+
+            // Checking user existing or not
+            var existingUser = await _userRepository.GetUserByUsernameAsync(request.Username);
+            if(existingUser != null)
+            {
+                return Result<UserRequest>.Failure("Username already exists.");
+            }
+            var requestRole = ValidateRole(request.Role);
+            request.Role = requestRole.ToString();
+            return Result<UserRequest>.Success(request);
+        }
+
+        private UserRole ValidateRole(string role)
+        {
+            if (!Enum.TryParse<UserRole>(role, true, out var parsedRole))
+            {
+                return UserRole.Guest;
+            }
+            return parsedRole;
         }
     }
 }

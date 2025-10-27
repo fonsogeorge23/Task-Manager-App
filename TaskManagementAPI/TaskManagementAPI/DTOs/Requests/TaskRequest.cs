@@ -9,6 +9,6 @@ namespace TaskManagementAPI.DTOs.Requests
         public CurrentStatus Status { get; set; } = CurrentStatus.Pending;
         public PriorityLevel PriorityLevel { get; set; } = PriorityLevel.Medium;
         public DateTime DueDate { get; set; }
-        public int UserId { get; set; } // The user who owns this task
+        public int UserId { get; set; } 
     }
 }

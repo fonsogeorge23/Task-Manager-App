@@ -11,6 +11,8 @@ namespace TaskManagementAPI.Repositories
         Task<TaskObject> AddTaskAsync(TaskObject task);
         Task<TaskObject> UpdateTaskAsync(TaskObject task);
         Task<bool> DeleteTaskAsync(int id, int userId);
+        Task<bool> HardDeleteTask(int id, int userId);
+        Task<bool> SoftDeleteTask(int id, int userId);
 
     }
     public class TaskRepository : ITaskRepository
@@ -29,6 +31,30 @@ namespace TaskManagementAPI.Repositories
             return task;
         }
 
+        public async Task<bool> HardDeleteTask(int id, int userId)
+        {
+            var task = await GetTaskByIdAsync(id, userId);
+            if(task == null)
+            {
+                return false;
+            }
+            _context.Tasks.Remove(task);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> SoftDeleteTask(int id, int userId)
+        {
+            var task = await GetTaskByIdAsync(id, userId);
+            if(task == null)
+            {
+                return false;
+            }
+            task.IsActive = false;
+            _context.Tasks.Update(task);
+            await _context.SaveChangesAsync();
+            return true;
+        }
 
         public async Task<bool> DeleteTaskAsync(int id, int userId)
         {
