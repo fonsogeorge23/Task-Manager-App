@@ -12,6 +12,7 @@ namespace TaskManagementAPI.Repositories
         Task<User?> GetUserByUsernameAsync(string username);
         Task<User?> GetUserByEmailAsync(string email);
         Task<IEnumerable<User>> GetAllUsersAsync();
+        Task<User?> GetUserCredentialsAsync(string username, string password);
         Task<User?> UpdateUserAsync(int id, User user);
         Task<bool> HardDeleteUserAsync(int id);
         Task<bool> SoftDeleteUserAsync(int id);
@@ -37,16 +38,19 @@ namespace TaskManagementAPI.Repositories
         }
         public async Task<User?> GetUserByEmailAsync(string email)
         {
-            return await _context.Users.FirstOrDefaultAsync(x => 
-                EF.Functions.Collate(x.Email, "SQL_Latin1_General_CP1_CS_AS") == email);
+            return await _context.Users.FirstOrDefaultAsync(x => x.Email== email);
         }
 
         public async Task<User?> GetUserByUsernameAsync(string username)
         {
-            return await _context.Users.FirstOrDefaultAsync(u =>
-            EF.Functions.Collate(u.Username, "SQL_Latin1_General_CP1_CS_AS") == username);
+            return await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
         }
 
+        public async Task<User?> GetUserCredentialsAsync(string username, string password)
+        {
+            return await _context.Users.FirstOrDefaultAsync(u =>
+            EF.Functions.Collate(u.Username, "SQL_Latin1_General_CP1_CS_AS") == username );
+        }
         public async Task<IEnumerable<User>> GetAllUsersAsync()
         {
             return await _context.Users.ToListAsync();

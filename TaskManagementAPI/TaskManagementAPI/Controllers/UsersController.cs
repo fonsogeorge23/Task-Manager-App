@@ -34,6 +34,11 @@ namespace TaskManagementAPI.Controllers
             // Create user
             var userResponse = await _userService.CreateUserAsync(request);
 
+            if(!userResponse.IsSuccess)
+            {
+                // Registration failed (e.g., username/email already exists)
+                return BadRequest(userResponse.ErrorMessage);
+            }
             // Returns 201 Created with the created user
             return CreatedAtAction(nameof(Register), new { id = userResponse.Data.Id }, userResponse);
         }

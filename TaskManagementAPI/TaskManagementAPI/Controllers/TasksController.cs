@@ -21,9 +21,10 @@ namespace TaskManagementAPI.Controllers
         {
             request.UserId = UserIdFromToken;
             var createdTask = await _taskService.CreateTaskAsync(request);
-            return CreatedAtAction(nameof(GetTaskById), new {id = createdTask.Id}, createdTask);
+            return CreatedAtAction(nameof(GetTaskById), new {id = createdTask.Data.Id}, createdTask);
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpGet("{id}")]
         public async Task<IActionResult> GetTaskById(int id)
         {
@@ -32,6 +33,19 @@ namespace TaskManagementAPI.Controllers
             if (task == null)
                 return NotFound("Task not found or access denied.");
             return Ok(task);
+        }
+
+        [HttpGet("user-tasks")]
+        [Authorize(Roles = "User,Admin")]
+        public async Task<IActionResult> GetUserTasks()
+        {
+            int userId = UserIdFromToken;
+            var tasks = await _taskService.GetUserTasksAsync(userId);
+            if (tasks == null)
+            {
+                return NotFound("No tasks found for the user.");
+            }
+            return Ok(tasks);
         }
     }
 }

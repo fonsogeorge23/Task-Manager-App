@@ -44,6 +44,7 @@ namespace TaskManagementAPI.Services
             {
                 return Result<UserResponse>.Failure(validRequest.ErrorMessage);
             }
+
             // Map UserRequest to User entity
             var user = _mapper.Map<User>(validRequest.Data);
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
@@ -58,17 +59,16 @@ namespace TaskManagementAPI.Services
         }
 
         public async Task<Result<UserResponse>> AuthenticateUserAsync(string username, string password)
-        {
-            var user = await _userRepository.GetUserByUsernameAsync(username);
+        { 
 
             // FIX: Check if the user is null OR if PasswordHash is null/empty BEFORE calling BCrypt.Verify
-            if (user == null || string.IsNullOrEmpty(user.PasswordHash))
+            if (string.IsNullOrEmpty(username)|| string.IsNullOrEmpty(password))
             {
                 return Result<UserResponse>.Failure("Invalid username or password.");
             }
+            var user = await _userRepository.GetUserCredentialsAsync(username, password);
 
-            // Only call BCrypt.Verify if we have a hash to compare against
-            if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
+            if(user == null || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
             {
                 return Result<UserResponse>.Failure("Invalid username or password.");
             }
@@ -116,9 +116,10 @@ namespace TaskManagementAPI.Services
             return Result<UserResponse>.Success(userResponse);
         }
 
-        // Helper method to validate and assign role
+        // Helper method to validate request and assign role
         private async Task<Result<UserRequest>> ValidateRequestAsync(UserRequest request)
         {
+            // Basic validation
             if (request == null)
             {
                 return Result<UserRequest>.Failure("Request cannot be null.");
@@ -133,8 +134,17 @@ namespace TaskManagementAPI.Services
             var existingUser = await _userRepository.GetUserByUsernameAsync(request.Username);
             if(existingUser != null)
             {
-                return Result<UserRequest>.Failure("Username already exists.");
+                return Result<UserRequest>.Failure("Username/Email already exists.");
             }
+            else
+            {
+                existingUser = await _userRepository.GetUserByEmailAsync(request.Email);
+                if(existingUser != null)
+                {
+                    return Result<UserRequest>.Failure("Username/Email already exists.");
+                }
+            }
+
             var requestRole = ValidateRole(request.Role);
             request.Role = requestRole.ToString();
             return Result<UserRequest>.Success(request);
