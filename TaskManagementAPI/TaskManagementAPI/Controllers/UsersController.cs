@@ -22,9 +22,7 @@ namespace TaskManagementAPI.Controllers
             _jwtAuthManager = jwtAuthManager;
         }
 
-        // =====================
-        // REGISTER NEW USER
-        // =====================
+        #region REGISTER NEW USER
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] UserRequest request)
         {
@@ -42,10 +40,9 @@ namespace TaskManagementAPI.Controllers
             // Returns 201 Created with the created user
             return CreatedAtAction(nameof(Register), new { id = userResponse.Data.Id }, userResponse);
         }
+        #endregion
 
-        // =========================
-        // LOGIN AND GENERATE TOKEN 
-        // =========================
+        #region USER LOGIN
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
@@ -74,10 +71,9 @@ namespace TaskManagementAPI.Controllers
                 });
 
         }
+        #endregion
 
-        // =========================
-        // Get All Users (Admin Only)
-        // =========================
+        #region GET USERS
         [Authorize(Roles ="Admin")]
         [HttpGet("all")]
         public async Task<IActionResult> GetAllUsers()
@@ -89,9 +85,16 @@ namespace TaskManagementAPI.Controllers
         // ===============
         // Get user by ID 
         // ===============
+        [Authorize]
         [HttpGet("{id}")]
         public async Task<IActionResult> GetUserById(int id)
         {
+            var userId = UserIdFromToken;
+
+            if (id != userId && RoleFromToken != "Admin")
+            {
+                return Forbid("You are not authorized to access this user's information.");
+            }
             var userResponse = await _userService.GetUserByIdAsync(id);
             if (!userResponse.IsSuccess)
             {
@@ -99,8 +102,80 @@ namespace TaskManagementAPI.Controllers
             }
             return Ok(userResponse);
         }
+        #endregion
 
-        // Debug endpoint to confirm [Authorize] is working
+        #region UPDATE USER PROFILE
+        [Authorize(Roles = "Admin")]
+        [HttpPut("update-profile")]
+        public async Task<IActionResult> UpdateUserByAdmin([FromBody] UserRequest request)
+        {
+            var user = await _userService.GetUserByUsername(request);
+            if (user == null || !user.IsSuccess)
+            {
+                user = await _userService.GetUserByEmail(request);
+            }
+
+            if(user == null || !user.IsSuccess)
+            {
+                return NotFound("User not found with provided username or email.");
+            }
+            var updatedUserResponse = await _userService.UpdateUserAsync(user.Data.Id, request);
+            if (!updatedUserResponse.IsSuccess)
+            {
+                return BadRequest(updatedUserResponse.ErrorMessage);
+            }
+            return Ok(updatedUserResponse);
+        }
+
+        [Authorize]
+        [HttpPut("update-my-profile")]
+        public async Task<IActionResult> UpdateMyProfile([FromBody] UserRequest request)
+        {
+            int userId = UserIdFromToken;
+            var updatedUserResponse = await _userService.UpdateUserAsync(userId, request);
+            if (!updatedUserResponse.IsSuccess)
+            {
+                return BadRequest(updatedUserResponse.ErrorMessage);
+            }
+            return Ok(updatedUserResponse);
+        }
+        #endregion
+
+        #region DELETE USER
+        [Authorize]
+        [HttpPut("delete/{id}")]
+        public async Task<IActionResult> SoftDeleteUser(int id)
+        {
+            var userId = UserIdFromToken;
+            if (id != userId && RoleFromToken != "Admin")
+            {
+                return Unauthorized("You are not authorized to delete this user.");
+            }
+            var result = await _userService.SoftDeleteUserAsync(id);
+            if (!result.IsSuccess)
+            {
+                return BadRequest(result.ErrorMessage);
+            }
+            return Ok(result);
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpDelete("Hdelete/{id}")]
+        public async Task<IActionResult> HardDeleteUser(int id)
+        {
+            var deleteUser = await _userService.HardDeleteUserAsync(id);
+            if (!deleteUser.IsSuccess)
+            {
+                return BadRequest(deleteUser.ErrorMessage);
+            }
+            return Ok(deleteUser);
+        }
+        #endregion
+
+        #region DEBUG - GET USER INFO FROM TOKEN
+        // ====================================================
+        //   Debug endpoint to confirm [Authorize] is working  
+        // ====================================================
         [Authorize(Roles = "Admin")]
         [HttpGet("debug-authorize")]
         public IActionResult DebugAuthorize()
@@ -118,5 +193,6 @@ namespace TaskManagementAPI.Controllers
                 RoleFromToken = role
             });
         }
+        #endregion
     }
 }

@@ -74,17 +74,6 @@ namespace TaskManagementAPI.Repositories
             await _context.SaveChangesAsync();
             return existingUser;
         }
-        public async Task<bool> HardDeleteUserAsync(int id)
-        {
-            var user = await GetUserByIdAsync(id);
-            if (user == null)
-            {
-                return false;
-            }
-            _context.Users.Remove(user);
-            await _context.SaveChangesAsync();
-            return true;
-        }
 
         public async Task<bool> SoftDeleteUserAsync(int id)
         {
@@ -95,6 +84,18 @@ namespace TaskManagementAPI.Repositories
             }
             user.IsActive = false;
             _context.Users.Update(user);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> HardDeleteUserAsync(int id)
+        {
+            var user = await GetUserByIdAsync(id);
+            if (user == null)
+            {
+                return false;
+            }
+            _context.Users.Remove(user);
             await _context.SaveChangesAsync();
             return true;
         }

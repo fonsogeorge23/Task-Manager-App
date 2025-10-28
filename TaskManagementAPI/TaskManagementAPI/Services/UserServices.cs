@@ -23,8 +23,20 @@ namespace TaskManagementAPI.Services
         // Method to retrieve user by ID
         Task<Result<UserResponse>> GetUserByIdAsync(int id);
 
+        // Method to retrieve user by username
+        Task<Result<UserResponse>> GetUserByUsername(UserRequest request);
+
+        // Method to retrieve user by username
+        Task<Result<UserResponse>> GetUserByEmail(UserRequest request);
+
         // Method to update user
         Task<Result<UserResponse>> UpdateUserAsync(int id, UserRequest request);
+
+        // Method to delete user (soft delete)
+        Task<Result<string>> SoftDeleteUserAsync(int id);
+
+        // Method to delete user (hard delete)
+        Task<Result<string>> HardDeleteUserAsync(int id);
     }
     public class UserServices : IUserService
     {
@@ -96,6 +108,28 @@ namespace TaskManagementAPI.Services
             return Result<UserResponse>.Success(userResponse);
         }
 
+        public async Task<Result<UserResponse>> GetUserByUsername(UserRequest request)
+        {
+            var user = await _userRepository.GetUserByUsernameAsync(request.Username);
+            if (user == null)
+            {
+                return Result<UserResponse>.Failure("User not found.");
+            }
+            var userResponse = _mapper.Map<UserResponse>(user);
+            return Result<UserResponse>.Success(userResponse);
+        }
+
+        public async Task<Result<UserResponse>> GetUserByEmail(UserRequest request)
+        {
+            var user = await _userRepository.GetUserByEmailAsync(request.Email);
+            if (user == null)
+            {
+                return Result<UserResponse>.Failure("User not found.");
+            }
+            var userResponse = _mapper.Map<UserResponse>(user);
+            return Result<UserResponse>.Success(userResponse);
+        }
+
         public async Task<Result<UserResponse>> UpdateUserAsync(int id, UserRequest request)
         {
             var existingUser = await _userRepository.GetUserByIdAsync(id);
@@ -106,6 +140,7 @@ namespace TaskManagementAPI.Services
             // Update fields
             existingUser.Username = request.Username;
             existingUser.Email = request.Email;
+            existingUser.Role = ValidateRole(request.Role);
             // Only update password if provided
             if (!string.IsNullOrEmpty(request.Password))
             {
@@ -114,6 +149,28 @@ namespace TaskManagementAPI.Services
             var updatedUser = await _userRepository.UpdateUserAsync(id, existingUser);
             var userResponse = _mapper.Map<UserResponse>(updatedUser);
             return Result<UserResponse>.Success(userResponse);
+        }
+
+        public async Task<Result<string>> SoftDeleteUserAsync(int id)
+        {
+            var existingUser = await _userRepository.GetUserByIdAsync(id);
+            if(existingUser == null)
+            {
+                return Result<string>.Failure("User doesnot exist");
+            }
+            var result = await _userRepository.SoftDeleteUserAsync(id);
+            return Result<string>.Success("User deleted successfully");
+        }
+
+        public async Task<Result<string>> HardDeleteUserAsync(int id)
+        {
+            var existingUser = await _userRepository.GetUserByIdAsync(id);
+            if(existingUser == null)
+            {
+                return Result<string>.Failure("User doesnot exist");
+            }
+            var result = await _userRepository.HardDeleteUserAsync(id);
+            return Result<string>.Success("User deleted successfully");
         }
 
         // Helper method to validate request and assign role
@@ -131,14 +188,14 @@ namespace TaskManagementAPI.Services
             }
 
             // Checking user existing or not
-            var existingUser = await _userRepository.GetUserByUsernameAsync(request.Username);
+            var existingUser = await GetUserByUsername(request);
             if(existingUser != null)
             {
                 return Result<UserRequest>.Failure("Username/Email already exists.");
             }
             else
             {
-                existingUser = await _userRepository.GetUserByEmailAsync(request.Email);
+                existingUser = await GetUserByEmail(request);
                 if(existingUser != null)
                 {
                     return Result<UserRequest>.Failure("Username/Email already exists.");
