@@ -7,7 +7,7 @@ namespace TaskManagementAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    //[Authorize]
     public class TasksController : BaseController
     {
         private readonly ITaskService _taskService;
@@ -63,25 +63,43 @@ namespace TaskManagementAPI.Controllers
 
         #region UPDATE TASK
         [Authorize]
-        [HttpPut("update/{id}")]
+        [HttpPut("update/{taskId}")]
         public async Task<IActionResult> UpdateTask(int taskId, [FromBody] TaskRequest request)
         {
             var updatedTask = await _taskService.UpdateTaskAsync(taskId, request, UserIdFromToken, RoleFromToken);
             if (!updatedTask.IsSuccess)
-                return NotFound("Task not found or access denied.");
+                return NotFound(updatedTask.ErrorMessage);
             return Ok(updatedTask);
+        }
+
+        [Authorize]
+        [HttpPatch("activate-task/{id}")]
+        public async Task<IActionResult> ActivateTask(int id)
+        { var result = await _taskService.ActivateTaskAsync(id, UserIdFromToken, RoleFromToken);
+            if (!result.IsSuccess)
+                return Unauthorized(result.ErrorMessage);
+            return Ok(result);
         }
         #endregion
 
-        #region DELETE TASK
+        #region DELETE/INACTIVATE TASK
+        [Authorize]
+        [HttpPatch("inactivate/{id}")]
+        public async Task<IActionResult> InactivateTask(int id)
+        {
+            var result = await _taskService.InactivateTask(id, UserIdFromToken, RoleFromToken);
+            if (!result.IsSuccess)
+                return Unauthorized(result.ErrorMessage);
+            return Ok(result);
+        }
+
         [Authorize]
         [HttpDelete("delete/{id}")]
         public async Task<IActionResult> DeleteTask(int id)
         {
-            int userId = UserIdFromToken;
-            var result = await _taskService.DeleteTaskAsync(id, userId);
+            var result = await _taskService.DeleteTaskAsync(id, UserIdFromToken, RoleFromToken);
             if (!result.IsSuccess)
-                return NotFound(result.ErrorMessage);
+                return Unauthorized(result.ErrorMessage);
             return Ok(result);
         }
         #endregion
