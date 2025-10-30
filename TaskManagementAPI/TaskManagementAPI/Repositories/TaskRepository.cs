@@ -8,11 +8,12 @@ namespace TaskManagementAPI.Repositories
     {
         Task<TaskObject> AddTaskAsync(TaskObject task);
         Task<IEnumerable<TaskObject>> GetTasksItemsByUserIdAsync(int userId);
-        Task<TaskObject?> GetTaskByIdAsync(int id, int userId);
+        Task<IEnumerable<TaskObject>> GetAllTaskByStatus(int userId, string status);
+        Task<TaskObject?> GetTaskByTaskIdUserIdAsync(int id, int userId);
+        Task<TaskObject?> GetTaskByIdAsync(int id);
         Task<TaskObject> UpdateTaskAsync(TaskObject task);
-        Task<bool> DeleteTaskAsync(int id, int userId);
-        Task<bool> HardDeleteTask(int id, int userId);
-        Task<bool> SoftDeleteTask(int id, int userId);
+        Task<bool> DeleteTaskAsync(TaskObject task);
+        Task<bool> SoftDeleteTask(TaskObject task);
 
     }
     public class TaskRepository : ITaskRepository
@@ -31,49 +32,17 @@ namespace TaskManagementAPI.Repositories
             return task;
         }
 
-        public async Task<TaskObject?> GetTaskByIdAsync(int id, int userId)
+        public async Task<TaskObject?> GetTaskByTaskIdUserIdAsync(int id, int userId)
         {
             return await _context.Tasks
                 .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
         }
 
-        public async Task<bool> HardDeleteTask(int id, int userId)
+        public async Task<TaskObject?> GetTaskByIdAsync(int id)
         {
-            var task = await GetTaskByIdAsync(id, userId);
-            if(task == null)
-            {
-                return false;
-            }
-            _context.Tasks.Remove(task);
-            await _context.SaveChangesAsync();
-            return true;
+            return await _context.Tasks
+                .FirstOrDefaultAsync(t => t.Id == id);
         }
-
-        public async Task<bool> SoftDeleteTask(int id, int userId)
-        {
-            var task = await GetTaskByIdAsync(id, userId);
-            if(task == null)
-            {
-                return false;
-            }
-            task.IsActive = false;
-            _context.Tasks.Update(task);
-            await _context.SaveChangesAsync();
-            return true;
-        }
-
-        public async Task<bool> DeleteTaskAsync(int id, int userId)
-        {
-            var task = await GetTaskByIdAsync(id, userId);
-            if(task == null)
-            {
-                return false;
-            }
-            _context.Tasks.Remove(task);
-            await  _context.SaveChangesAsync();
-            return true;
-        }
-
         public async Task<IEnumerable<TaskObject>> GetTasksItemsByUserIdAsync(int userId)
         {
             return await _context.Tasks
@@ -81,11 +50,31 @@ namespace TaskManagementAPI.Repositories
                 .ToListAsync();
         }
 
+        public async Task<IEnumerable<TaskObject>> GetAllTaskByStatus(int userId, string status)
+        {
+            return await _context.Tasks
+                .Where(t => t.UserId == userId && t.Status.ToString() == status)
+                .ToListAsync();
+        }
         public async Task<TaskObject> UpdateTaskAsync(TaskObject task)
         {
             _context.Tasks.Update(task);
             await _context.SaveChangesAsync();
             return task;
+        }
+
+        public async Task<bool> SoftDeleteTask(TaskObject task)
+        {
+            _context.Tasks.Update(task);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> DeleteTaskAsync(TaskObject task)
+        {
+            _context.Tasks.Remove(task);
+            await  _context.SaveChangesAsync();
+            return true;
         }
     }
 }

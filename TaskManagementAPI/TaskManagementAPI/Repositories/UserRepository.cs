@@ -14,8 +14,8 @@ namespace TaskManagementAPI.Repositories
         Task<IEnumerable<User>> GetAllUsersAsync();
         Task<User?> GetUserCredentialsAsync(string username, string password);
         Task<User?> UpdateUserAsync(int id, User user);
-        Task<bool> HardDeleteUserAsync(int id);
-        Task<bool> SoftDeleteUserAsync(int id);
+        Task<bool> HardDeleteUserAsync(User user);
+        Task<bool> SoftDeleteUserAsync(User user);
     }
     public class UserRepository : IUserRepository
     {
@@ -75,26 +75,16 @@ namespace TaskManagementAPI.Repositories
             return existingUser;
         }
 
-        public async Task<bool> SoftDeleteUserAsync(int id)
+        public async Task<bool> SoftDeleteUserAsync(User user)
         {
-            var user = await GetUserByIdAsync(id);
-            if (user == null)
-            {
-                return false;
-            }
             user.IsActive = false;
             _context.Users.Update(user);
             await _context.SaveChangesAsync();
             return true;
         }
 
-        public async Task<bool> HardDeleteUserAsync(int id)
+        public async Task<bool> HardDeleteUserAsync(User user)
         {
-            var user = await GetUserByIdAsync(id);
-            if (user == null)
-            {
-                return false;
-            }
             _context.Users.Remove(user);
             await _context.SaveChangesAsync();
             return true;

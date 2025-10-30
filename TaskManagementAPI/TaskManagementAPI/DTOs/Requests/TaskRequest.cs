@@ -9,6 +9,7 @@ namespace TaskManagementAPI.DTOs.Requests
         public CurrentStatus Status { get; set; } = CurrentStatus.Pending;
         public PriorityLevel PriorityLevel { get; set; } = PriorityLevel.Medium;
         public DateTime DueDate { get; set; }
+        public bool IsActive { get; set; } = true;
         public int UserId { get; set; } 
     }
 }

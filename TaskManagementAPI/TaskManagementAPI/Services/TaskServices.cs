@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using System.Threading.Tasks;
 using TaskManagementAPI.DTOs.Requests;
 using TaskManagementAPI.DTOs.Responses;
 using TaskManagementAPI.Models;
@@ -10,10 +11,12 @@ namespace TaskManagementAPI.Services
     public interface ITaskService
     {
         Task<Result<TaskResponse>> CreateTaskAsync(TaskRequest request);
-        Task<Result<TaskResponse>> GetTaskByIdAsync(int id, int userId);
+        Task<Result<TaskResponse>> GetTaskByIdAsync(int id, int userId, string role);
         Task<IEnumerable<TaskResponse>> GetUserTasksAsync(int userId);
-        //Task<bool> DeleteTaskAsync(int id, int userId);
-        //Task<TaskObject?> UpdateTaskAsync(TaskObject task);
+        Task<IEnumerable<TaskResponse>> GetAllTaskByStatusAsync(int userId, string status);
+        Task<Result<TaskResponse>> UpdateTaskAsync(int id, TaskRequest request, int userId, string role);
+        Task<Result<string>> SoftDeleteTask(int id, int userId);
+        Task<Result<string>> DeleteTaskAsync(int id, int userId);
     }
     public class TaskServices : ITaskService
     {
@@ -40,15 +43,20 @@ namespace TaskManagementAPI.Services
             return Result<TaskResponse>.Success(response);
         }
 
-        public async Task<Result<TaskResponse>> GetTaskByIdAsync(int id, int userId)
+        public async Task<Result<TaskResponse>> GetTaskByIdAsync(int id, int userId, string role)
         {
             // Retrieve task from repository
-            var task = await _taskRepository.GetTaskByIdAsync(id, userId);
+            var task = await _taskRepository.GetTaskByIdAsync(id);
             if (task == null)
             {
                 return Result<TaskResponse>.Failure("Task not found");
             }
 
+            if(task.UserId != userId && role != "Admin")
+            {
+                return Result<TaskResponse>.Failure("Access denied");
+            }
+            
             // Map to TaskResponse
             var response = _mapper.Map<TaskResponse>(task);
 
@@ -60,11 +68,74 @@ namespace TaskManagementAPI.Services
             return _mapper.Map<IEnumerable<TaskResponse>>(tasks);
 
         }
+        public async Task<IEnumerable<TaskResponse>> GetAllTaskByStatusAsync(int userId, string status)
+        {
+            var tasks = await _taskRepository.GetAllTaskByStatus(userId, status);
+            if(tasks == null || !tasks.Any())
+            {
+                return Enumerable.Empty<TaskResponse>();
+            }
+            return _mapper.Map<IEnumerable<TaskResponse>>(tasks);
+        }
+        public async Task<Result<TaskResponse>> UpdateTaskAsync(int taskId, TaskRequest request, int userId, string role)
+        {
+            var existingTask = await _taskRepository.GetTaskByTaskIdUserIdAsync(taskId, userId);
+            if(existingTask == null)
+            {
+                if(role == "Admin")
+                {
+                    existingTask = await _taskRepository.GetTaskByIdAsync(taskId);
+                }
+                if(existingTask == null)
+                {
+                    return Result<TaskResponse>.Failure("Task not found or access denied");
+                }
+            }
 
-        //public Task<bool> DeleteTaskAsync(int id, int userId) => _taskRepository.DeleteTaskAsync(id, userId);
+            // Updating fields
+            existingTask.Title = request.Title;
+            existingTask.Description = request.Description;
+            existingTask.Status = request.Status;
+            existingTask.Priority = request.PriorityLevel;
+            existingTask.DueDate = request.DueDate;
+            existingTask.IsActive = request.IsActive;
 
+            // Saving updated task
+            var updatedTask = await _taskRepository.UpdateTaskAsync(existingTask);
+            var response = _mapper.Map<TaskResponse>(updatedTask);
+            return Result<TaskResponse>.Success(response);
+        }
 
+        public async Task<Result<string>> SoftDeleteTask(int id, int userId)
+        {
+            var tasks = await _taskRepository.GetTasksItemsByUserIdAsync(userId);
+            if(tasks == null)
+            {
+                return Result<string>.Failure("No active task for user");
+            }
+            var updatingTask = tasks.FirstOrDefault(t => t.Id == id);
+            if(updatingTask == null)
+            {
+                return Result<string>.Failure("Task not found");
+            }
+            await _taskRepository.SoftDeleteTask(updatingTask);
+            return Result<string>.Success("Task is inactive");
+        }
 
-        //public Task<TaskObject> UpdateTaskAsync(TaskObject task) => _taskRepository.UpdateTaskAsync(task);
+        public async Task<Result<string>> DeleteTaskAsync(int id, int userId)
+        {
+            var task = await _taskRepository.GetTasksItemsByUserIdAsync(userId);
+            if (task == null)
+            {
+                return Result<string>.Failure("No active task for user");
+            }
+            var deletingTask = task.FirstOrDefault(t => t.Id == id);
+            if (deletingTask == null)
+            {
+                return Result<string>.Failure("Task not found");
+            }
+            await _taskRepository.DeleteTaskAsync(deletingTask);
+            return Result<string>.Success("Task deleted successfully");
+        }
     }
 }

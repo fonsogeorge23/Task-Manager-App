@@ -158,7 +158,7 @@ namespace TaskManagementAPI.Services
             {
                 return Result<string>.Failure("User doesnot exist");
             }
-            var result = await _userRepository.SoftDeleteUserAsync(id);
+            var result = await _userRepository.SoftDeleteUserAsync(existingUser);
             return Result<string>.Success("User deleted successfully");
         }
 
@@ -169,7 +169,7 @@ namespace TaskManagementAPI.Services
             {
                 return Result<string>.Failure("User doesnot exist");
             }
-            var result = await _userRepository.HardDeleteUserAsync(id);
+            var result = await _userRepository.HardDeleteUserAsync(existingUser);
             return Result<string>.Success("User deleted successfully");
         }
 

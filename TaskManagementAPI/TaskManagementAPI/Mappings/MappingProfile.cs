@@ -9,6 +9,16 @@ namespace TaskManagementAPI.Mappings
     {
         public MappingProfile() 
         {
+            #region User Mappings
+            // Map from UserRequest DTO to entity
+            CreateMap<UserRequest, User>()
+                .ForMember(dest => dest.PasswordHash, opt => opt.Ignore())// PasswordHash will be set separately
+                .ForMember(dest => dest.Role, opt =>opt.MapFrom(src => src.Role));
+
+            // Map from entity to UserResponse DTO
+            CreateMap<User, UserResponse>();
+            #endregion
+
             #region Task Mappings
             // Map from TaskRequest DTO to entity
             CreateMap<TaskRequest, TaskObject>()
@@ -19,16 +29,6 @@ namespace TaskManagementAPI.Mappings
             CreateMap<TaskObject, TaskResponse>()
                 .ForMember(dest => dest.Priority, opt => opt.MapFrom(src => src.Priority))
                 .ForMember(dest => dest.Owner, opt => opt.MapFrom(src => src.User.Username));
-            #endregion
-
-            #region User Mappings
-            // Map from UserRequest DTO to entity
-            CreateMap<UserRequest, User>()
-                .ForMember(dest => dest.PasswordHash, opt => opt.Ignore())// PasswordHash will be set separately
-                .ForMember(dest => dest.Role, opt =>opt.MapFrom(src => src.Role));
-
-            // Map from entity to UserResponse DTO
-            CreateMap<User, UserResponse>();
             #endregion
         }
     }
