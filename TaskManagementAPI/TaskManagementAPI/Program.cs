@@ -31,6 +31,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors("AllowFrontend");
 
 // Authentication and Authorization MUST be before MapControllers
 app.UseAuthentication();

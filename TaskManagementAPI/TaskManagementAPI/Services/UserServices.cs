@@ -54,7 +54,7 @@ namespace TaskManagementAPI.Services
             var validRequest = await ValidateRequestAsync(request);
             if(!validRequest.IsSuccess)
             {
-                return Result<UserResponse>.Failure(validRequest.ErrorMessage);
+                return Result<UserResponse>.Failure(validRequest.Message);
             }
 
             // Map UserRequest to User entity

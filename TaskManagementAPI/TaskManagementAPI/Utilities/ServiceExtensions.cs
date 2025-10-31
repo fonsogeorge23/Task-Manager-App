@@ -78,5 +78,17 @@ namespace TaskManagementAPI.Utilities
                 };
             });
         }
+
+        // Configure and add CORS policy(will be used in future)
+        public static void AddCorsPolicy(this IServiceCollection services)
+        {
+            services.AddCors(options =>
+            {
+                options.AddPolicy("AllowAll",
+                    builder => builder.AllowAnyOrigin()
+                                      .AllowAnyMethod()
+                                      .AllowAnyHeader());
+            });
+        }
     }
 }

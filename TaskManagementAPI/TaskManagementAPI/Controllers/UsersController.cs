@@ -35,7 +35,7 @@ namespace TaskManagementAPI.Controllers
             if(!userResponse.IsSuccess)
             {
                 // Registration failed (e.g., username/email already exists)
-                return BadRequest(userResponse.ErrorMessage);
+                return BadRequest(userResponse.Message);
             }
             // Returns 201 Created with the created user
             return CreatedAtAction(nameof(Register), new { id = userResponse.Data.Id }, userResponse);
@@ -52,7 +52,7 @@ namespace TaskManagementAPI.Controllers
             if (!authenticatedUser.IsSuccess)
             {
                 // Authentication failed (e.g., bad username or password)
-                return Unauthorized(authenticatedUser.ErrorMessage);
+                return Unauthorized(authenticatedUser.Message);
             }
 
             // 2. Generate token using the authenticated user's details
@@ -122,7 +122,7 @@ namespace TaskManagementAPI.Controllers
             var updatedUserResponse = await _userService.UpdateUserAsync(user.Data.Id, request);
             if (!updatedUserResponse.IsSuccess)
             {
-                return BadRequest(updatedUserResponse.ErrorMessage);
+                return BadRequest(updatedUserResponse.Message);
             }
             return Ok(updatedUserResponse);
         }
@@ -135,7 +135,7 @@ namespace TaskManagementAPI.Controllers
             var updatedUserResponse = await _userService.UpdateUserAsync(userId, request);
             if (!updatedUserResponse.IsSuccess)
             {
-                return BadRequest(updatedUserResponse.ErrorMessage);
+                return BadRequest(updatedUserResponse.Message);
             }
             return Ok(updatedUserResponse);
         }
@@ -154,7 +154,7 @@ namespace TaskManagementAPI.Controllers
             var result = await _userService.SoftDeleteUserAsync(id);
             if (!result.IsSuccess)
             {
-                return BadRequest(result.ErrorMessage);
+                return BadRequest(result.Message);
             }
             return Ok(result);
         }
@@ -166,7 +166,7 @@ namespace TaskManagementAPI.Controllers
             var deleteUser = await _userService.HardDeleteUserAsync(id);
             if (!deleteUser.IsSuccess)
             {
-                return BadRequest(deleteUser.ErrorMessage);
+                return BadRequest(deleteUser.Message);
             }
             return Ok(deleteUser);
         }
@@ -174,24 +174,17 @@ namespace TaskManagementAPI.Controllers
 
         #region DEBUG - GET USER INFO FROM TOKEN
         // ====================================================
-        //   Debug endpoint to confirm [Authorize] is working  
+        //   Debug endpoint to confirm token is working  
         // ====================================================
-        [Authorize(Roles = "Admin")]
-        [HttpGet("debug-authorize")]
-        public IActionResult DebugAuthorize()
+        [HttpGet("verify-token")]
+        [Authorize]
+        public IActionResult VerifyToken()
         {
-            // Get user identity from token
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var username = User.FindFirstValue(ClaimTypes.Name);
-            var role = User.FindFirstValue(ClaimTypes.Role); 
+            var role = User.FindFirstValue(ClaimTypes.Role);
 
-            return Ok(new
-            {
-                Message = "Authorization successful!",
-                UserIdFromToken = userId,
-                UsernameFromToken = username,
-                RoleFromToken = role
-            });
+            return Ok(new { userId, username, role });
         }
         #endregion
     }

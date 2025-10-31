@@ -68,7 +68,7 @@ namespace TaskManagementAPI.Controllers
         {
             var updatedTask = await _taskService.UpdateTaskAsync(taskId, request, UserIdFromToken, RoleFromToken);
             if (!updatedTask.IsSuccess)
-                return NotFound(updatedTask.ErrorMessage);
+                return NotFound(updatedTask.Message);
             return Ok(updatedTask);
         }
 
@@ -77,7 +77,7 @@ namespace TaskManagementAPI.Controllers
         public async Task<IActionResult> ActivateTask(int id)
         { var result = await _taskService.ActivateTaskAsync(id, UserIdFromToken, RoleFromToken);
             if (!result.IsSuccess)
-                return Unauthorized(result.ErrorMessage);
+                return Unauthorized(result.Message);
             return Ok(result);
         }
         #endregion
@@ -89,7 +89,7 @@ namespace TaskManagementAPI.Controllers
         {
             var result = await _taskService.InactivateTask(id, UserIdFromToken, RoleFromToken);
             if (!result.IsSuccess)
-                return Unauthorized(result.ErrorMessage);
+                return Unauthorized(result.Message);
             return Ok(result);
         }
 
@@ -99,7 +99,7 @@ namespace TaskManagementAPI.Controllers
         {
             var result = await _taskService.DeleteTaskAsync(id, UserIdFromToken, RoleFromToken);
             if (!result.IsSuccess)
-                return Unauthorized(result.ErrorMessage);
+                return Unauthorized(result.Message);
             return Ok(result);
         }
         #endregion
