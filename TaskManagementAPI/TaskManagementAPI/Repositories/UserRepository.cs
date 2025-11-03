@@ -8,14 +8,15 @@ namespace TaskManagementAPI.Repositories
     public interface IUserRepository
     {
         Task<User> RegisterUserAsync(User user);
+        Task<User?> GetActiveUserByIdAsync(int id);
         Task<User?> GetUserByIdAsync(int id);
         Task<User?> GetUserByUsernameAsync(string username);
         Task<User?> GetUserByEmailAsync(string email);
         Task<IEnumerable<User>> GetAllUsersAsync();
+        Task<IEnumerable<User>> GetAllActiveUsersAsync();
         Task<User?> GetUserCredentialsAsync(string username, string password);
-        Task<User?> UpdateUserAsync(int id, User user);
-        Task<bool> HardDeleteUserAsync(User user);
-        Task<bool> SoftDeleteUserAsync(User user);
+        Task<User?> UpdateUserAsync(User user);
+        Task<bool> DeleteUserAsync(User user);
     }
     public class UserRepository : IUserRepository
     {
@@ -32,9 +33,15 @@ namespace TaskManagementAPI.Repositories
             await _context.SaveChangesAsync();
             return user;
         }
-        public async Task<User?> GetUserByIdAsync(int id)
+        
+        public async Task<User?> GetActiveUserByIdAsync(int id)
         {
             return await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
+        }
+
+        public async Task<User?> GetUserByIdAsync(int id)
+        {
+            return await _context.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Id == id);
         }
         public async Task<User?> GetUserByEmailAsync(string email)
         {
@@ -51,43 +58,28 @@ namespace TaskManagementAPI.Repositories
             return await _context.Users.FirstOrDefaultAsync(u =>
             EF.Functions.Collate(u.Username, "SQL_Latin1_General_CP1_CS_AS") == username );
         }
-        public async Task<IEnumerable<User>> GetAllUsersAsync()
+
+        public async Task<IEnumerable<User>> GetAllActiveUsersAsync()
         {
             return await _context.Users.ToListAsync();
         }
-        public async Task<User?> UpdateUserAsync(int id, User user)
-        {
-            var existingUser = await GetUserByIdAsync(id);
-            if (existingUser == null)
-            {
-                return null;
-            }
-            existingUser.Username = user.Username;
-            existingUser.Email = user.Email;
-            // Only update password if provided
-            if (!string.IsNullOrEmpty(user.PasswordHash))
-            {
-                existingUser.PasswordHash = user.PasswordHash;
-            }
-            existingUser.Role = user.Role;
-            _context.Users.Update(existingUser);
-            await _context.SaveChangesAsync();
-            return existingUser;
-        }
 
-        public async Task<bool> SoftDeleteUserAsync(User user)
+        public async Task<IEnumerable<User>> GetAllUsersAsync()
         {
-            user.IsActive = false;
+            return await _context.Users.IgnoreQueryFilters().ToListAsync();
+        }
+        public async Task<User?> UpdateUserAsync(User user)
+        {
             _context.Users.Update(user);
             await _context.SaveChangesAsync();
-            return true;
+            return await _context.Users.IgnoreQueryFilters<User>().FirstOrDefaultAsync(u => u.Id == user.Id);
         }
 
-        public async Task<bool> HardDeleteUserAsync(User user)
+        public async Task<bool> DeleteUserAsync(User user)
         {
             _context.Users.Remove(user);
-            await _context.SaveChangesAsync();
-            return true;
+            var deleted = await _context.SaveChangesAsync();
+            return deleted == 1? true: false;
         }
     }
 }

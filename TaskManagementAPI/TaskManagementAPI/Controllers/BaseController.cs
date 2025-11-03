@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using System.Collections;
 using TaskManagementAPI.Utilities;
 
 namespace TaskManagementAPI.Controllers
@@ -25,6 +26,18 @@ namespace TaskManagementAPI.Controllers
 
             if (result.IsSuccess)
             {
+                // Check if the successful data is an IEnumerable and if it's empty
+                if (result.Data is IEnumerable enumerableData && !(result.Data is string) && !enumerableData.GetEnumerator().MoveNext())
+                {
+                    // If it's a successful result but the *collection* is empty, return 404 Not Found.
+                    // The '!(result.Data is string)' prevents treating strings as collections.
+                    return NotFound(new
+                    {
+                        success = false,
+                        message = result.Message ?? "No items found.",
+                        timestamp = result.Timestamp
+                    });
+                }
                 return Ok(new
                 {
                     success = true,

@@ -18,9 +18,11 @@ namespace TaskManagementAPI.Models
 
         [Required]
         public string PasswordHash { get; set; } = string.Empty;
+
         public UserRole Role { get; set; } = UserRole.User;
 
         public bool IsActive { get; set; } = true;
+
         // Navigation property for tasks created/owned by the user
         public ICollection<TaskObject> Tasks { get; set; } = new List<TaskObject>();
     }

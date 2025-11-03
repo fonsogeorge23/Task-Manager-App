@@ -2,8 +2,8 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using TaskManagementAPI.DTOs.Requests;
+using TaskManagementAPI.DTOs.Responses;
 using TaskManagementAPI.Services;
-using TaskManagementAPI.Utilities;
 using LoginRequest = TaskManagementAPI.DTOs.Requests.LoginRequest;
 
 namespace TaskManagementAPI.Controllers
@@ -14,31 +14,18 @@ namespace TaskManagementAPI.Controllers
     {
         // NOTE: The IUserService implementation needs to be updated with AuthenticateUserAsync.
         private readonly IUserService _userService;
-        private readonly IJwtAuthManager _jwtAuthManager;
 
-        public UsersController(IUserService userService, IJwtAuthManager jwtAuthManager)
+        public UsersController(IUserService userService)
         {
             _userService = userService;
-            _jwtAuthManager = jwtAuthManager;
         }
 
         #region REGISTER NEW USER
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] UserRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
-                return BadRequest("Username and password are required.");
-
-            // Create user
             var userResponse = await _userService.CreateUserAsync(request);
-
-            if(!userResponse.IsSuccess)
-            {
-                // Registration failed (e.g., username/email already exists)
-                return BadRequest(userResponse.Message);
-            }
-            // Returns 201 Created with the created user
-            return CreatedAtAction(nameof(Register), new { id = userResponse.Data.Id }, userResponse);
+            return HandleResult(userResponse);
         }
         #endregion
 
@@ -54,128 +41,90 @@ namespace TaskManagementAPI.Controllers
                 // Authentication failed (e.g., bad username or password)
                 return Unauthorized(authenticatedUser.Message);
             }
-
-            // 2. Generate token using the authenticated user's details
-            var token = _jwtAuthManager.GenerateToken(
-                authenticatedUser.Data.Id,
-                authenticatedUser.Data.UserName,
-                authenticatedUser.Data.Role.ToString()
-            );
-
-            // 3. Return the token and user details
-            return Ok(new { 
-                Token = token, 
-                Username = authenticatedUser.Data.UserName,
-                authenticatedUser.Data.Email,
-                authenticatedUser.Data.Role,
-                });
+            var tokenResult = await _userService.GenerateToken(authenticatedUser.Data);
+            return HandleResult(tokenResult);
 
         }
         #endregion
 
         #region GET USERS
-        [Authorize(Roles ="Admin")]
+        [Authorize]
+        [HttpGet("active-users")]
+        public async Task<IActionResult> GetAllActiveUsers()
+        {
+            var usersResponse = await _userService.GetAllActiveUsers();
+
+            return HandleResult<IEnumerable<UserResponse>>(usersResponse);
+        }
+
+        [Authorize]
         [HttpGet("all")]
         public async Task<IActionResult> GetAllUsers()
         {
-            var usersResponse = await _userService.GetAllUsersAsync();
-            return Ok(usersResponse);
+            var usersResponse = await _userService.GetAllUsers();
+            return HandleResult<IEnumerable<UserResponse>>(usersResponse);
         }
 
-        // ===============
-        // Get user by ID 
-        // ===============
         [Authorize]
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetUserById(int id)
+        public async Task<IActionResult> GetUser(int id)
         {
-            var userId = UserIdFromToken;
-
-            if (id != userId && RoleFromToken != "Admin")
-            {
-                return Forbid("You are not authorized to access this user's information.");
-            }
-            var userResponse = await _userService.GetUserByIdAsync(id);
-            if (!userResponse.IsSuccess)
-            {
-                return NotFound(userResponse);
-            }
-            return Ok(userResponse);
+            var userResponse = await _userService.GetActiveUserByIdAsync(UserIdFromToken, id);
+            return HandleResult(userResponse);
         }
         #endregion
 
         #region UPDATE USER PROFILE
-        [Authorize(Roles = "Admin")]
+        [Authorize]
         [HttpPut("update-profile")]
-        public async Task<IActionResult> UpdateUserByAdmin([FromBody] UserRequest request)
+        public async Task<IActionResult> UpdateUserProfile([FromBody] UserRequest request)
         {
-            var user = await _userService.GetUserByUsername(request);
-            if (user == null || !user.IsSuccess)
+            var userId = UserIdFromToken;
+            if (RoleFromToken.Equals("Admin"))
             {
-                user = await _userService.GetUserByEmail(request);
+                var updateUser = await _userService.AdminUserUpdate(userId, request);
+                return HandleResult(updateUser);
             }
-
-            if(user == null || !user.IsSuccess)
+            else
             {
-                return NotFound("User not found with provided username or email.");
+                var updatedUserResponse = await _userService.UserProfileUpdate(userId, request);
+                return HandleResult(updatedUserResponse);
             }
-            var updatedUserResponse = await _userService.UpdateUserAsync(user.Data.Id, request);
-            if (!updatedUserResponse.IsSuccess)
-            {
-                return BadRequest(updatedUserResponse.Message);
-            }
-            return Ok(updatedUserResponse);
         }
 
         [Authorize]
-        [HttpPut("update-my-profile")]
-        public async Task<IActionResult> UpdateMyProfile([FromBody] UserRequest request)
+        [HttpPatch("activate-users/{id}")]
+        public async Task<IActionResult> ActivateUser(int id)
         {
-            int userId = UserIdFromToken;
-            var updatedUserResponse = await _userService.UpdateUserAsync(userId, request);
-            if (!updatedUserResponse.IsSuccess)
-            {
-                return BadRequest(updatedUserResponse.Message);
-            }
-            return Ok(updatedUserResponse);
+            var activatedUser = await _userService.ActivateUser(UserIdFromToken, id);
+            return HandleResult(activatedUser);
         }
         #endregion
 
         #region DELETE USER
         [Authorize]
-        [HttpPut("delete/{id}")]
-        public async Task<IActionResult> SoftDeleteUser(int id)
+        [HttpDelete("delete-profile/{hardDelete}")]
+        public async Task<IActionResult> DeleteProfile(bool hardDelete, UserRequest request)
         {
             var userId = UserIdFromToken;
-            if (id != userId && RoleFromToken != "Admin")
-            {
-                return Unauthorized("You are not authorized to delete this user.");
-            }
-            var result = await _userService.SoftDeleteUserAsync(id);
-            if (!result.IsSuccess)
-            {
-                return BadRequest(result.Message);
-            }
-            return Ok(result);
-        }
 
-        [Authorize(Roles = "Admin")]
-        [HttpDelete("Hdelete/{id}")]
-        public async Task<IActionResult> HardDeleteUser(int id)
-        {
-            var deleteUser = await _userService.HardDeleteUserAsync(id);
-            if (!deleteUser.IsSuccess)
+            if (hardDelete)
             {
-                return BadRequest(deleteUser.Message);
+                var deletedUser = await _userService.HardDeleteUserAsync(userId, request);
+                return HandleResult(deletedUser);
             }
-            return Ok(deleteUser);
+            else
+            {
+                var inactivatedUser = await _userService.SoftDeleteUserAsync(userId, request);
+                return HandleResult(inactivatedUser);
+            }
         }
         #endregion
 
         #region DEBUG - GET USER INFO FROM TOKEN
-        // ====================================================
-        //   Debug endpoint to confirm token is working  
-        // ====================================================
+        // ==============================================
+        //   Debug endpoint to confirm token is working    
+        // ==============================================
         [HttpGet("verify-token")]
         [Authorize]
         public IActionResult VerifyToken()

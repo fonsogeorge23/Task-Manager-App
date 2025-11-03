@@ -8,9 +8,14 @@ using TaskManagementAPI.Models;
 namespace TaskManagementAPI.Utilities
 {
     public interface IJwtAuthManager
-    {
-        // Updated interface method signature
-        string GenerateToken(int userId, string username, string role);
+    {/// <summary>
+     /// Generates a JWT token asynchronously.
+     /// </summary>
+     /// <param name="userId">The ID of the user.</param>
+     /// <param name="username">The username of the user.</param>
+     /// <param name="role">The role of the user.</param>
+     /// <returns>A Task that represents the asynchronous operation, yielding the generated JWT token string.</returns>
+        Task<string> GenerateToken(int userId, string username, string role);
     }
 
     public class JwtAuthManager : IJwtAuthManager
@@ -24,8 +29,10 @@ namespace TaskManagementAPI.Utilities
             _key = _jwtSettings.SecretKey;
         }
 
-        // Updated implementation to include userId, username, and role in the claims
-        public string GenerateToken(int userId, string username, string role)
+        /// <summary>
+        /// Generates a JWT token synchronously and wraps the result in a Task to satisfy the async interface.
+        /// </summary>
+        public Task<string> GenerateToken(int userId, string username, string role)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var tokenKey = Encoding.UTF8.GetBytes(_key);
@@ -51,7 +58,11 @@ namespace TaskManagementAPI.Utilities
             };
 
             var token = tokenHandler.CreateToken(tokenDescriptor);
-            return tokenHandler.WriteToken(token);
+            string tokenString = tokenHandler.WriteToken(token);
+
+            // Since token generation is a fast CPU-bound operation, we use Task.FromResult
+            // to return the value as a completed Task, satisfying the async interface.
+            return Task.FromResult(tokenString);
         }
     }
 }

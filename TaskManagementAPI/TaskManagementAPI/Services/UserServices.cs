@@ -1,6 +1,5 @@
 ﻿using AutoMapper;
-using Microsoft.AspNetCore.Authorization;
-using System;
+using System.Runtime.InteropServices;
 using TaskManagementAPI.DTOs.Requests;
 using TaskManagementAPI.DTOs.Responses;
 using TaskManagementAPI.Models;
@@ -15,13 +14,19 @@ namespace TaskManagementAPI.Services
         Task<Result<UserResponse>> CreateUserAsync(UserRequest request);
 
         // Method to authenticate user 
-        Task<Result<UserResponse>> AuthenticateUserAsync(string username, string password);
+        Task<Result<User>> AuthenticateUserAsync(string username, string password);
+
+        // Method to generate token for authenticated user
+        Task<Result<UserResponse>> GenerateToken(User user);
+
+        // Method to get all users
+        Task<Result<IEnumerable<UserResponse>>> GetAllUsers();
 
         // Method to retrieve all users
-        Task<IEnumerable<UserResponse>> GetAllUsersAsync();
+        Task<Result<IEnumerable<UserResponse>>> GetAllActiveUsers();
 
         // Method to retrieve user by ID
-        Task<Result<UserResponse>> GetUserByIdAsync(int id);
+        Task<Result<UserResponse>> GetActiveUserByIdAsync(int accessId, int id);
 
         // Method to retrieve user by username
         Task<Result<UserResponse>> GetUserByUsername(UserRequest request);
@@ -29,24 +34,37 @@ namespace TaskManagementAPI.Services
         // Method to retrieve user by username
         Task<Result<UserResponse>> GetUserByEmail(UserRequest request);
 
-        // Method to update user
-        Task<Result<UserResponse>> UpdateUserAsync(int id, UserRequest request);
+        // Method to activate a user
+        Task<Result<UserResponse>> ActivateUser(int accessingId, int userId);
+        // Method for Admin to update user
+        Task<Result<UserResponse>> AdminUserUpdate(int updateId, UserRequest request);
 
-        // Method to delete user (soft delete)
-        Task<Result<string>> SoftDeleteUserAsync(int id);
+        // Method for user to update own profile
+        Task<Result<UserResponse>> UserProfileUpdate(int userId, UserRequest request);
 
         // Method to delete user (hard delete)
-        Task<Result<string>> HardDeleteUserAsync(int id);
+        Task<Result<string>> HardDeleteUserAsync(int deletingUserId, UserRequest request);
+
+        // Method to inactivate user (soft delete)
+        Task<Result<UserResponse>> SoftDeleteUserAsync(int updateUserId, UserRequest request);
+
+
+        //Task<Result<string>> SoftDeleteUserAsync(int id);
+
+        //// Method to delete user (hard delete)
+        //Task<Result<string>> HardDeleteUserAsync(int id);
     }
     public class UserServices : IUserService
     {
         private readonly IUserRepository _userRepository;
         private readonly IMapper _mapper;
+        private readonly IJwtAuthManager _jwtAuthManager;
 
-        public UserServices(IUserRepository userRepository, IMapper mapper)
+        public UserServices(IUserRepository userRepository, IMapper mapper, IJwtAuthManager jwtAuthManager)
         {
             _userRepository = userRepository;
             _mapper = mapper;
+            _jwtAuthManager = jwtAuthManager;
         }
 
         public async Task<Result<UserResponse>> CreateUserAsync(UserRequest request)
@@ -67,45 +85,82 @@ namespace TaskManagementAPI.Services
             // Map and return success result
             var userResponse = _mapper.Map<UserResponse>(createdUser);
 
-            return Result<UserResponse>.Success(userResponse);
+            return Result<UserResponse>.Success(userResponse, "New user registered successfully");
         }
 
-        public async Task<Result<UserResponse>> AuthenticateUserAsync(string username, string password)
+        public async Task<Result<User>> AuthenticateUserAsync(string username, string password)
         { 
 
             // FIX: Check if the user is null OR if PasswordHash is null/empty BEFORE calling BCrypt.Verify
             if (string.IsNullOrEmpty(username)|| string.IsNullOrEmpty(password))
             {
-                return Result<UserResponse>.Failure("Invalid username or password.");
+                return Result<User>.Failure("Invalid username or password.");
             }
             var user = await _userRepository.GetUserCredentialsAsync(username, password);
 
             if(user == null || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
             {
-                return Result<UserResponse>.Failure("Invalid username or password.");
+                return Result<User>.Failure("Invalid username or password.");
             }
 
             // Successful authentication
-            var response = _mapper.Map<UserResponse>(user);
-
-            return Result<UserResponse>.Success(response);
+            return Result<User>.Success(user);
         }
 
-        public async Task<IEnumerable<UserResponse>> GetAllUsersAsync()
+        public async Task<Result<UserResponse>> GenerateToken(User user)
+        {
+            var token = await _jwtAuthManager.GenerateToken(
+                user.Id,
+                user.Username,
+                user.Role.ToString()
+            );
+            return Result<UserResponse>.Success(new UserResponse
+            {
+                Id = user.Id,
+                UserName = user.Username,
+                Email = user.Email,
+                Role = user.Role
+            }, token);
+        }
+
+        public async Task<Result<IEnumerable<UserResponse>>> GetAllUsers()
         {
             var users = await _userRepository.GetAllUsersAsync();
-            return _mapper.Map<IEnumerable<UserResponse>>(users);
+
+            return ProcessUserListResult(users, "No user found");
         }
 
-        public async Task<Result<UserResponse>> GetUserByIdAsync(int id)
+        public async Task<Result<IEnumerable<UserResponse>>> GetAllActiveUsers()
         {
-            var user = await _userRepository.GetUserByIdAsync(id);
-            if (user == null)
+            var users = await _userRepository.GetAllActiveUsersAsync();
+            return ProcessUserListResult(users, "No active users");
+        }
+
+        private Result<IEnumerable<UserResponse>> ProcessUserListResult(IEnumerable<User> users, string notFoundMessage)
+        {
+            if (users == null || !users.Any())
             {
-                return Result<UserResponse>.Failure("User not found.");
+                return Result<IEnumerable<UserResponse>>.Failure(notFoundMessage);
             }
-            var userResponse = _mapper.Map<UserResponse>(user);
-            return Result<UserResponse>.Success(userResponse);
+            var userResponses = _mapper.Map<IEnumerable<UserResponse>>(users);
+            return Result<IEnumerable<UserResponse>>.Success(userResponses);
+        }
+
+        public async Task<Result<UserResponse>> GetActiveUserByIdAsync(int accessId, int id)
+        {
+            var user = await _userRepository.GetActiveUserByIdAsync(accessId);
+
+            if (user?.Role == UserRole.Admin || accessId == id)
+            {
+                var result = await _userRepository.GetActiveUserByIdAsync(id);
+                if(result == null)
+                {
+                    return Result<UserResponse>.Failure("No user found");
+                }
+                var userResponse = _mapper.Map<UserResponse>(result);
+                return Result<UserResponse>.Success(userResponse);
+            }
+            return Result<UserResponse>.Failure("You are not authorized to access user information");
         }
 
         public async Task<Result<UserResponse>> GetUserByUsername(UserRequest request)
@@ -129,48 +184,138 @@ namespace TaskManagementAPI.Services
             var userResponse = _mapper.Map<UserResponse>(user);
             return Result<UserResponse>.Success(userResponse);
         }
-
-        public async Task<Result<UserResponse>> UpdateUserAsync(int id, UserRequest request)
+        
+        public async Task<Result<UserResponse>> ActivateUser(int updateId, int userId)
         {
-            var existingUser = await _userRepository.GetUserByIdAsync(id);
-            if (existingUser == null)
+            var user = await _userRepository.GetUserByIdAsync(userId);
+            if (user == null)
+            {
+                return Result<UserResponse>.Failure("User not found");
+            }
+            user.IsActive = true;
+            // user.updatedBy = updateId;
+            var result = await _userRepository.UpdateUserAsync(user);
+            var response = _mapper.Map<UserResponse>(result);
+            return Result<UserResponse>.Success(response);
+        }
+
+        public async Task<Result<UserResponse>> AdminUserUpdate(int updateId, UserRequest request)
+        {
+            var user = await GetUser(request);
+            if (user == null)
+            {
+                return Result<UserResponse>.Failure("User not found with provided username or email.");
+            }
+            var updatedUser = await UpdateUserAsync(updateId, user, request);
+            return updatedUser;
+        }
+
+        public async Task<Result<UserResponse>> UserProfileUpdate(int userId, UserRequest request)
+        {
+            var user = await GetUser(request);
+            if(user?.Id != userId)
+            {
+                return Result<UserResponse>.Failure("You are not authorized to update the profile");
+            }
+            if (user == null)
             {
                 return Result<UserResponse>.Failure("User not found.");
             }
+            var updatedUser = await UpdateUserAsync(userId, user, request);
+            return updatedUser;
+        }
+
+        private async Task<User?> GetUser(UserRequest request)
+        {
+            var user = await _userRepository.GetUserByUsernameAsync(request.Username);
+            if (user == null)
+            {
+                user = await _userRepository.GetUserByEmailAsync(request.Email);
+            }
+            return user;
+        }
+
+        private async Task<Result<UserResponse>> UpdateUserAsync(int updateId, User user, UserRequest request)
+        {
             // Update fields
-            existingUser.Username = request.Username;
-            existingUser.Email = request.Email;
-            existingUser.Role = ValidateRole(request.Role);
+            user.Username = request.Username;
+            user.Email = request.Email;
+            user.Role = ValidateRole(request.Role);
+            // user.UpdatedBy = updateId; 
+
             // Only update password if provided
             if (!string.IsNullOrEmpty(request.Password))
             {
-                existingUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
             }
-            var updatedUser = await _userRepository.UpdateUserAsync(id, existingUser);
+            var updatedUser = await _userRepository.UpdateUserAsync(user);
             var userResponse = _mapper.Map<UserResponse>(updatedUser);
             return Result<UserResponse>.Success(userResponse);
         }
 
-        public async Task<Result<string>> SoftDeleteUserAsync(int id)
+        public async Task<Result<string>> HardDeleteUserAsync(int deletingUserId, UserRequest request)
         {
-            var existingUser = await _userRepository.GetUserByIdAsync(id);
-            if(existingUser == null)
+            bool authorized = await AuthorizedUser(deletingUserId, request);
+            if (authorized)
             {
-                return Result<string>.Failure("User doesnot exist");
+                var existingUser = await GetUser(request);
+                if (existingUser == null)
+                {
+                    return Result<string>.Failure("Invalid user information");
+                }
+                // existingUser.UpdatedBy = deletingUserId;
+                var result = await _userRepository.DeleteUserAsync(existingUser);
+
+                return result ? Result<string>.Success("User deleted successfully.")
+                                : Result<string>.Failure("Failed to delete user.");
             }
-            var result = await _userRepository.SoftDeleteUserAsync(existingUser);
-            return Result<string>.Success("User deleted successfully");
+            return Result<string>.Failure("Invalid/Unauthorized user information");
         }
 
-        public async Task<Result<string>> HardDeleteUserAsync(int id)
+        public async Task<Result<UserResponse>> SoftDeleteUserAsync(int updateUserId, UserRequest request)
         {
-            var existingUser = await _userRepository.GetUserByIdAsync(id);
-            if(existingUser == null)
+            bool authorized = await AuthorizedUser(updateUserId, request);
+            if (authorized)
             {
-                return Result<string>.Failure("User doesnot exist");
+                var existingUser = await GetUser(request);
+                if (existingUser == null)
+                {
+                    return Result<UserResponse>.Failure("Invalid user information");
+                }
+                // existingUser.UpdatedBy = updateUserId;
+                existingUser.IsActive = false;
+                var result = await _userRepository.UpdateUserAsync(existingUser);
+                var user = _mapper.Map<UserResponse>(result);
+
+                return Result<UserResponse>.Success(user);
             }
-            var result = await _userRepository.HardDeleteUserAsync(existingUser);
-            return Result<string>.Success("User deleted successfully");
+            return Result<UserResponse>.Failure("Invalid/Unauthorized user information");
+        }
+
+        // Helper method to check if the accessing user is authorized
+        private async Task<bool> AuthorizedUser(int id, UserRequest request)
+        {
+            var accessingUser = await _userRepository.GetActiveUserByIdAsync(id);
+            var accessedUserRecord = await GetUser(request);
+
+            if (accessingUser != null && accessedUserRecord != null)
+            {
+                if (accessingUser.Role == UserRole.Admin || id == accessedUserRecord.Id)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Helper method to validate and parse role
+        private UserRole ValidateRole(string role)
+        {
+            if (!Enum.TryParse<UserRole>(role, true, out var parsedRole))
+            {
+                return UserRole.Guest;
+            }
+            return parsedRole;
         }
 
         // Helper method to validate request and assign role
@@ -189,14 +334,14 @@ namespace TaskManagementAPI.Services
 
             // Checking user existing or not
             var existingUser = await GetUserByUsername(request);
-            if(existingUser != null)
+            if(existingUser.IsSuccess)
             {
                 return Result<UserRequest>.Failure("Username/Email already exists.");
             }
             else
             {
                 existingUser = await GetUserByEmail(request);
-                if(existingUser != null)
+                if(existingUser.IsSuccess)
                 {
                     return Result<UserRequest>.Failure("Username/Email already exists.");
                 }
@@ -205,15 +350,6 @@ namespace TaskManagementAPI.Services
             var requestRole = ValidateRole(request.Role);
             request.Role = requestRole.ToString();
             return Result<UserRequest>.Success(request);
-        }
-
-        private UserRole ValidateRole(string role)
-        {
-            if (!Enum.TryParse<UserRole>(role, true, out var parsedRole))
-            {
-                return UserRole.Guest;
-            }
-            return parsedRole;
         }
     }
 }
