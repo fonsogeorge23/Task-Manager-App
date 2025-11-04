@@ -33,22 +33,8 @@ namespace TaskManagementAPI.Controllers
         [Authorize]
         public async Task<IActionResult> GetAllTasksByStatus(int userId, [FromQuery] string? status)
         {
-
-            var loggedInUserId = UserIdFromToken;
-            var role = RoleFromToken;
-
-            var result = await _taskService.GetTasksForUserAsync(userId, loggedInUserId, role, status);
+            var result = await _taskService.GetTasksForUserAsync(userId, UserIdFromToken, RoleFromToken, status ??= "All");
             return HandleResult<IEnumerable<TaskResponse>>(result);
-            //Result<IEnumerable<TaskResponse>> tasks;
-            //if (status == null)
-            //{
-            //    tasks = await _taskService.GetUserTasksAsync(userId);
-            //}
-            //else
-            //{
-            //    tasks = await _taskService.GetAllTaskByStatusAsync(userId, status);
-            //}
-            //return HandleResult<IEnumerable<TaskResponse>>(tasks);
         }
 
         [Authorize]
@@ -70,18 +56,15 @@ namespace TaskManagementAPI.Controllers
         public async Task<IActionResult> UpdateTask(int taskId, [FromBody] TaskRequest request)
         {
             var updatedTask = await _taskService.UpdateTaskAsync(taskId, request, UserIdFromToken, RoleFromToken);
-            if (!updatedTask.IsSuccess)
-                return NotFound(updatedTask.Message);
-            return Ok(updatedTask);
+            return HandleResult(updatedTask);
         }
 
         [Authorize]
         [HttpPatch("activate-task/{id}")]
         public async Task<IActionResult> ActivateTask(int id)
-        { var result = await _taskService.ActivateTaskAsync(id, UserIdFromToken, RoleFromToken);
-            if (!result.IsSuccess)
-                return Unauthorized(result.Message);
-            return Ok(result);
+        { 
+            var activateTask = await _taskService.ActivateTaskAsync(id, UserIdFromToken, RoleFromToken);
+            return HandleResult(activateTask);
         }
         #endregion
 

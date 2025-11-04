@@ -18,7 +18,7 @@ namespace TaskManagementAPI.Services
 
 
 
-        Task<Result<TaskResponse>> UpdateTaskAsync(int id, TaskRequest request, int userId, string role);
+        Task<Result<TaskResponse>> UpdateTaskAsync(int id, TaskRequest request, int accessId, string role);
         Task<Result<TaskResponse>> ActivateTaskAsync(int id, int userId, string role);
         Task<Result<string>> InactivateTask(int id, int userId, string role);
         Task<Result<string>> DeleteTaskAsync(int id, int userId, string role);
@@ -48,7 +48,7 @@ namespace TaskManagementAPI.Services
             return Result<TaskResponse>.Success(response);
         }
 
-        public async Task<Result<IEnumerable<TaskResponse>>> GetTasksForUserAsync(int id, int accessId, string role, string? status)
+        public async Task<Result<IEnumerable<TaskResponse>>> GetTasksForUserAsync(int id, int accessId, string role, string status)
         {
             // Access control
             if (id != accessId && role != "Admin")
@@ -56,7 +56,8 @@ namespace TaskManagementAPI.Services
 
             IEnumerable<TaskResponse> tasks;
 
-            if (string.IsNullOrWhiteSpace(status))
+            //if (string.IsNullOrWhiteSpace(status))
+            if(status.Equals("All", StringComparison.OrdinalIgnoreCase))
             {
                 tasks = await GetUserTasksAsync(id);
             }
@@ -66,7 +67,7 @@ namespace TaskManagementAPI.Services
             }
 
             if (tasks == null || !tasks.Any())
-                return Result<IEnumerable<TaskResponse>>.Failure($"No {status ?? "available"} tasks for user");
+                return Result<IEnumerable<TaskResponse>>.Failure($"No {status ?? "active"} tasks for user");
 
             return Result<IEnumerable<TaskResponse>>.Success(tasks);
         }
@@ -97,23 +98,15 @@ namespace TaskManagementAPI.Services
             return response ?? Enumerable.Empty<TaskResponse>();
         }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        public async Task<Result<TaskResponse>> GetTaskByIdAsync(int id, int userId, string role)
+        public async Task<Result<TaskResponse>> GetTaskByIdAsync(int id, int accessId, string role)
         {
+
+            // Ensure only owner or admin can view
+            if (id != accessId && role != "Admin")
+            {
+                return Result<TaskResponse>.Failure("Access denied");
+            }
+
             // Retrieve task from repository
             var task = await _taskRepository.GetActiveTaskByIdAsync(id);
             if (task == null)
@@ -121,42 +114,54 @@ namespace TaskManagementAPI.Services
                 return Result<TaskResponse>.Failure("Task not found");
             }
 
-            if(task.UserId != userId && role != "Admin")
-            {
-                return Result<TaskResponse>.Failure("Access denied");
-            }
-            
             // Map to TaskResponse
             var response = _mapper.Map<TaskResponse>(task);
-
             return Result<TaskResponse>.Success(response);
         }
 
-        public async Task<Result<TaskResponse>> UpdateTaskAsync(int taskId, TaskRequest request, int userId, string role)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        public async Task<Result<TaskResponse>> UpdateTaskAsync(int taskId, TaskRequest request, int accessId, string role)
         {
-            var existingTask = await _taskRepository.GetActiveTaskByTaskIdUserIdAsync(taskId, userId);
-            if(existingTask == null)
+            if (request.UserId != accessId && role != "Admin")
             {
-                if(role == "Admin")
-                {
-                    existingTask = await _taskRepository.GetActiveTaskByIdAsync(taskId);
-                }
-                if(existingTask == null)
-                {
-                    return Result<TaskResponse>.Failure("Task not found or access denied");
-                }
+                return Result<TaskResponse>.Failure("Access denied");
+            }
+            var userTasks = await _taskRepository.GetAllUserTaskAsync(request.UserId);
+            if (userTasks == null || !userTasks.Any())
+            {
+                return Result<TaskResponse>.Failure("No tasks found for this user");
             }
 
-            // Updating fields
+            var existingTask = userTasks.FirstOrDefault(t => t.Id == taskId);
+
+            if (existingTask == null)
+            {
+                return Result<TaskResponse>.Failure("Task not found");
+            }
+
             existingTask.Title = request.Title;
             existingTask.Description = request.Description;
             existingTask.Status = request.Status;
             existingTask.Priority = request.PriorityLevel;
             existingTask.DueDate = request.DueDate;
 
-            // Saving updated task
-            var updatedTask = await _taskRepository.UpdateTaskAsync(existingTask);
-            var response = _mapper.Map<TaskResponse>(updatedTask);
+            var isUpdated = await _taskRepository.UpdateTaskAsync(existingTask);
+            
+            var response = _mapper.Map<TaskResponse>(existingTask);
             return Result<TaskResponse>.Success(response);
         }
 

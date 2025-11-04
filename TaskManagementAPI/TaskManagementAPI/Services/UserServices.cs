@@ -260,7 +260,7 @@ namespace TaskManagementAPI.Services
                 {
                     return Result<string>.Failure("Invalid user information");
                 }
-                // existingUser.UpdatedBy = deletingUserId;
+
                 var result = await _userRepository.DeleteUserAsync(existingUser);
 
                 return result ? Result<string>.Success("User deleted successfully.")
