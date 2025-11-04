@@ -23,7 +23,7 @@ namespace TaskManagementAPI.Mappings
             // Map from TaskRequest DTO to entity
             CreateMap<TaskRequest, TaskObject>()
                 .ForMember(dest => dest.Priority, opt => opt.MapFrom(src => src.PriorityLevel))
-                .ForMember(dest => dest.CreateDate, opt => opt.MapFrom(_ => DateTime.Now));
+                .ForMember(dest => dest.CreatedDate, opt => opt.MapFrom(_ => DateTime.Now));
 
             // Map from entity to TaskResponse DTO
             CreateMap<TaskObject, TaskResponse>()

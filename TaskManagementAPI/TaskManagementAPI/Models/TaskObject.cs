@@ -4,7 +4,7 @@ using TaskManagementAPI.Utilities;
 
 namespace TaskManagementAPI.Models
 {
-    public class TaskObject
+    public class TaskObject : Base
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
@@ -22,11 +22,6 @@ namespace TaskManagementAPI.Models
         public PriorityLevel Priority { get; set; } = PriorityLevel.Low;
 
         public DateTime DueDate { get; set; }
-
-        public DateTime CreateDate { get; set; } = DateTime.Now;
-
-        [Required]
-        public bool IsActive { get; set; } = true;
 
         [Required]
         public int UserId {  get; set; }

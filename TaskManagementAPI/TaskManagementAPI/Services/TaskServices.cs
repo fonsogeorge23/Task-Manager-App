@@ -10,7 +10,7 @@ namespace TaskManagementAPI.Services
 {
     public interface ITaskService
     {
-        Task<Result<TaskResponse>> CreateTaskAsync(TaskRequest request);
+        Task<Result<TaskResponse>> CreateTaskAsync(TaskRequest request, int creatingId);
         Task<Result<TaskResponse>> GetTaskByIdAsync(int id, int userId, string role);
         Task<IEnumerable<TaskResponse>> GetUserTasksAsync(int userId);
         Task<IEnumerable<TaskResponse>> GetAllTaskByStatusAsync(int userId, string status);
@@ -30,7 +30,7 @@ namespace TaskManagementAPI.Services
             _mapper = mapper;
         }
 
-        public async Task<Result<TaskResponse>> CreateTaskAsync(TaskRequest request)
+        public async Task<Result<TaskResponse>> CreateTaskAsync(TaskRequest request, int creatingId)
         {
             // Map TaskRequest to TaskObject
             var task = _mapper.Map<TaskObject>(request);

@@ -4,7 +4,7 @@ using TaskManagementAPI.Utilities;
 
 namespace TaskManagementAPI.Models
 {
-    public class User
+    public class User : Base
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
@@ -21,7 +21,6 @@ namespace TaskManagementAPI.Models
 
         public UserRole Role { get; set; } = UserRole.User;
 
-        public bool IsActive { get; set; } = true;
 
         // Navigation property for tasks created/owned by the user
         public ICollection<TaskObject> Tasks { get; set; } = new List<TaskObject>();

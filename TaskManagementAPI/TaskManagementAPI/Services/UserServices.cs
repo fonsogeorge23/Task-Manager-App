@@ -11,7 +11,7 @@ namespace TaskManagementAPI.Services
     public interface IUserService
     {
         // Updated signature to use the Result<T> pattern
-        Task<Result<UserResponse>> CreateUserAsync(UserRequest request);
+        Task<Result<UserResponse>> CreateUserAsync(UserRequest request, int creatorId);
 
         // Method to authenticate user 
         Task<Result<User>> AuthenticateUserAsync(string username, string password);
@@ -48,11 +48,6 @@ namespace TaskManagementAPI.Services
         // Method to inactivate user (soft delete)
         Task<Result<UserResponse>> SoftDeleteUserAsync(int updateUserId, UserRequest request);
 
-
-        //Task<Result<string>> SoftDeleteUserAsync(int id);
-
-        //// Method to delete user (hard delete)
-        //Task<Result<string>> HardDeleteUserAsync(int id);
     }
     public class UserServices : IUserService
     {
@@ -67,7 +62,7 @@ namespace TaskManagementAPI.Services
             _jwtAuthManager = jwtAuthManager;
         }
 
-        public async Task<Result<UserResponse>> CreateUserAsync(UserRequest request)
+        public async Task<Result<UserResponse>> CreateUserAsync(UserRequest request, int creatorId)
         {
             var validRequest = await ValidateRequestAsync(request);
             if(!validRequest.IsSuccess)
@@ -77,6 +72,8 @@ namespace TaskManagementAPI.Services
 
             // Map UserRequest to User entity
             var user = _mapper.Map<User>(validRequest.Data);
+            user.CreatedBy = creatorId;
+            user.CreatedDate = DateTime.UtcNow;
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
             // Save user to the database
@@ -193,7 +190,7 @@ namespace TaskManagementAPI.Services
                 return Result<UserResponse>.Failure("User not found");
             }
             user.IsActive = true;
-            // user.updatedBy = updateId;
+
             var result = await _userRepository.UpdateUserAsync(user);
             var response = _mapper.Map<UserResponse>(result);
             return Result<UserResponse>.Success(response);
@@ -225,6 +222,7 @@ namespace TaskManagementAPI.Services
             return updatedUser;
         }
 
+        // Helper method to get user by username or email
         private async Task<User?> GetUser(UserRequest request)
         {
             var user = await _userRepository.GetUserByUsernameAsync(request.Username);
@@ -235,13 +233,13 @@ namespace TaskManagementAPI.Services
             return user;
         }
 
+        // Helper method to update user details
         private async Task<Result<UserResponse>> UpdateUserAsync(int updateId, User user, UserRequest request)
         {
             // Update fields
             user.Username = request.Username;
             user.Email = request.Email;
             user.Role = ValidateRole(request.Role);
-            // user.UpdatedBy = updateId; 
 
             // Only update password if provided
             if (!string.IsNullOrEmpty(request.Password))
@@ -282,7 +280,7 @@ namespace TaskManagementAPI.Services
                 {
                     return Result<UserResponse>.Failure("Invalid user information");
                 }
-                // existingUser.UpdatedBy = updateUserId;
+
                 existingUser.IsActive = false;
                 var result = await _userRepository.UpdateUserAsync(existingUser);
                 var user = _mapper.Map<UserResponse>(result);

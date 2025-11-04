@@ -1,12 +1,13 @@
-﻿
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TaskManagementAPI.Models;
+using TaskManagementAPI.Utilities;
 
 namespace TaskManagementAPI.Data
 {
-    public class AppDbContext: DbContext
+    public class AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAccessor? httpContextAccessor = null) : DbContext(options)
     {
-        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+        private readonly IHttpContextAccessor? _httpContextAccessor = httpContextAccessor;
+
         public DbSet<TaskObject> Tasks { get; set; }
         public DbSet<User> Users { get; set; }
 
@@ -28,6 +29,47 @@ namespace TaskManagementAPI.Data
             modelBuilder.Entity<User>().Property(u => u.IsActive)
                 .HasDefaultValue(true);
             modelBuilder.Entity<User>().HasQueryFilter(u => u.IsActive);
+        }
+
+        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            var entries = ChangeTracker.Entries<Base>();
+            var currentUserId = GetCurrentUserId();
+
+            foreach (var entry in entries)
+            {
+                switch (entry.State)
+                {
+                    case EntityState.Added:
+                        entry.Entity.CreatedDate = DateTime.UtcNow;
+                        entry.Entity.CreatedBy = currentUserId;
+                        entry.Entity.UpdatedDate = DateTime.UtcNow;
+                        entry.Entity.UpdatedBy = currentUserId;
+                        entry.Entity.IsActive = true;
+                        break;
+
+                    case EntityState.Modified:
+                        entry.Entity.UpdatedDate = DateTime.UtcNow;
+                        entry.Entity.UpdatedBy = currentUserId;
+                        break;
+                }
+            }
+
+            return await base.SaveChangesAsync(cancellationToken);
+        }
+
+        private int GetCurrentUserId()
+        {
+            try
+            {
+                var httpContext = _httpContextAccessor?.HttpContext;
+                var user = httpContext?.User;
+                return user?.GetTokenUserId() ?? 0;
+            }
+            catch
+            {
+                return 0; // fallback for unauthenticated operations
+            }
         }
     }
 }

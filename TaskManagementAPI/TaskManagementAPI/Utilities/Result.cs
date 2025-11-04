@@ -5,7 +5,7 @@
     public class Result<T>
     {
         // The successfull data payload
-        public T Data { get; }
+        public T? Data { get; }
         public bool IsSuccess { get; }
         public string Message { get; }
         public DateTime Timestamp { get; } = DateTime.UtcNow;
