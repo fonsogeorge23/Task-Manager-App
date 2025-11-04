@@ -53,7 +53,6 @@ namespace TaskManagementAPI.Controllers
         public async Task<IActionResult> GetAllActiveUsers()
         {
             var usersResponse = await _userService.GetAllActiveUsers();
-
             return HandleResult<IEnumerable<UserResponse>>(usersResponse);
         }
 

@@ -7,8 +7,14 @@ namespace TaskManagementAPI.Repositories
     public interface ITaskRepository
     {
         Task<TaskObject> AddTaskAsync(TaskObject task);
-        Task<IEnumerable<TaskObject>> GetActiveTasksItemsByUserIdAsync(int userId);
+        Task<IEnumerable<TaskObject>> GetAllUserTaskAsync(int userId);
+        Task<IEnumerable<TaskObject>> GetAllActiveTaskAsync(int userId);
         Task<IEnumerable<TaskObject>> GetAllActiveTaskByStatus(int userId, string status);
+
+
+
+
+        Task<IEnumerable<TaskObject>> GetActiveTasksItemsByUserIdAsync(int userId);
         Task<TaskObject?> GetActiveTaskByTaskIdUserIdAsync(int id, int userId);
         Task<TaskObject?> GetActiveTaskByIdAsync(int id);
         Task<TaskObject?> GetTaskByTaskIdUserIdAsync(int taskId, int userId);
@@ -19,6 +25,7 @@ namespace TaskManagementAPI.Repositories
         Task<bool> DeleteTaskAsync(TaskObject task);
 
     }
+
     public class TaskRepository : ITaskRepository
     {
         private readonly AppDbContext _context;
@@ -34,6 +41,38 @@ namespace TaskManagementAPI.Repositories
             await _context.SaveChangesAsync();
             return task;
         }
+
+        public async Task<IEnumerable<TaskObject>> GetAllUserTaskAsync(int userId)
+        {
+            return await _context.Tasks
+                .Include(t => t.User)
+                .IgnoreQueryFilters()
+                .Where(t => t.UserId == userId)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<TaskObject>> GetAllActiveTaskAsync(int userId)
+        {
+            return await _context.Tasks
+                .Include(t => t.User)
+                .Where(t => t.UserId == userId)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<TaskObject>> GetAllActiveTaskByStatus(int userId, string? status)
+        {
+            return await _context.Tasks
+                .Include(t => t.User)
+                .Where(t => t.UserId == userId && t.Status.ToString() == status)
+                .ToListAsync();
+        }
+
+
+
+
+
+
+
 
         public async Task<TaskObject?> GetActiveTaskByTaskIdUserIdAsync(int id, int userId)
         {
@@ -69,14 +108,6 @@ namespace TaskManagementAPI.Repositories
                 .Include(t => t.User)
                 .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(t => t.Id == id);
-        }
-
-        public async Task<IEnumerable<TaskObject>> GetAllActiveTaskByStatus(int userId, string status)
-        {
-            return await _context.Tasks
-                .Include(t => t.User)
-                .Where(t => t.UserId == userId && t.Status.ToString() == status)
-                .ToListAsync();
         }
         public async Task<TaskObject> UpdateTaskAsync(TaskObject task)
         {

@@ -72,8 +72,7 @@ namespace TaskManagementAPI.Services
 
             // Map UserRequest to User entity
             var user = _mapper.Map<User>(validRequest.Data);
-            user.CreatedBy = creatorId;
-            user.CreatedDate = DateTime.UtcNow;
+
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
             // Save user to the database

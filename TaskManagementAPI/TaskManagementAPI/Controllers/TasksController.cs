@@ -1,7 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
 using TaskManagementAPI.DTOs.Requests;
+using TaskManagementAPI.DTOs.Responses;
 using TaskManagementAPI.Services;
+using TaskManagementAPI.Utilities;
 
 namespace TaskManagementAPI.Controllers
 {
@@ -22,30 +25,30 @@ namespace TaskManagementAPI.Controllers
         {
             var createdTask = await _taskService.CreateTaskAsync(request, UserIdFromToken);
             return HandleResult(createdTask);
-            //request.UserId = UserIdFromToken;
-            //var createdTask = await _taskService.CreateTaskAsync(request);
-            //return CreatedAtAction(nameof(CreateTask), new {id = createdTask.Data.Id}, createdTask);
         }
         #endregion
 
         #region RETRIEVE TASKS
         [HttpGet("user-tasks/{userId}")]
         [Authorize]
-        public async Task<IActionResult> GetUserTasks(int userId)
+        public async Task<IActionResult> GetAllTasksByStatus(int userId, [FromQuery] string? status)
         {
-            // Ensure that users can only access their own tasks unless they are an Admin
-            if (UserIdFromToken != userId && RoleFromToken != "Admin")
-            {
-                return Unauthorized("You are not authorized to access these tasks.");
-            }
 
-            // Retrieve tasks for the specified user
-            var tasks = await _taskService.GetUserTasksAsync(userId);
-            if (tasks == null || !tasks.Any())
-            {
-                return NotFound("No tasks found for the user.");
-            }
-            return Ok(tasks);
+            var loggedInUserId = UserIdFromToken;
+            var role = RoleFromToken;
+
+            var result = await _taskService.GetTasksForUserAsync(userId, loggedInUserId, role, status);
+            return HandleResult<IEnumerable<TaskResponse>>(result);
+            //Result<IEnumerable<TaskResponse>> tasks;
+            //if (status == null)
+            //{
+            //    tasks = await _taskService.GetUserTasksAsync(userId);
+            //}
+            //else
+            //{
+            //    tasks = await _taskService.GetAllTaskByStatusAsync(userId, status);
+            //}
+            //return HandleResult<IEnumerable<TaskResponse>>(tasks);
         }
 
         [Authorize]

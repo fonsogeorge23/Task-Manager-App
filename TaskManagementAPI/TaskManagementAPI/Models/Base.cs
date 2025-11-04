@@ -5,18 +5,18 @@ namespace TaskManagementAPI.Models
     public abstract class Base
     {
         [Required]
-        public DateTime CreatedDate { get; set; } = DateTime.Now;
+        public DateTime CreatedDate { get; set; } 
 
         [Required]
         public int CreatedBy { get; set; }
 
         [Required]
-        public DateTime? UpdatedDate { get; set; } = null;
+        public DateTime? UpdatedDate { get; set; }
 
         [Required]
         public int? UpdatedBy { get; set; }
 
         [Required]
-        public bool IsActive { get; set; } = true;
+        public bool IsActive { get; set; }
     }
 }

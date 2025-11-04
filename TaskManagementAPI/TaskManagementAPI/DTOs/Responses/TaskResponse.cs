@@ -12,7 +12,7 @@ namespace TaskManagementAPI.DTOs.Responses
         public PriorityLevel Priority { get; set; }
         public DateTime DueDate { get; set; }
         public DateTime CreateDate { get; set; }
-
+        public bool IsActive { get; set; }
         public int UserId { get; set; }
         public string Owner { get; set; } = string.Empty;
     }
