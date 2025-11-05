@@ -75,7 +75,7 @@ namespace TaskManagementAPI.Controllers
 
         #region UPDATE USER PROFILE
         [Authorize]
-        [HttpPut("update-profile")]
+        [HttpPatch("update-profile")]
         public async Task<IActionResult> UpdateUserProfile([FromBody] UserRequest request)
         {
             var userId = UserIdFromToken;

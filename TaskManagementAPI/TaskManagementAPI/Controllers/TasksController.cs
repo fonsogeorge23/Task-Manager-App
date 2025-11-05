@@ -55,11 +55,11 @@ namespace TaskManagementAPI.Controllers
             return HandleResult(updatedTask);
         }
 
-        //[Authorize]
+        [Authorize]
         [HttpPatch("activate-task/{taskId}")]
         public async Task<IActionResult> ActivateTask(int taskId)
         {
-            var activateTask = await _taskService.ActivateTaskAsync(taskId, UserIdFromToken, RoleFromToken);
+            var activateTask = await _taskService.ActivateTaskAsync(taskId, UserIdFromToken);
 
             return HandleResult(activateTask);
         }

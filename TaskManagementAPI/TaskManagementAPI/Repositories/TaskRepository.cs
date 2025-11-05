@@ -11,8 +11,8 @@ namespace TaskManagementAPI.Repositories
         Task<IEnumerable<TaskObject>> GetAllActiveTaskForUserAsync(int userId);
         Task<IEnumerable<TaskObject>> GetAllActiveTaskByStatus(int userId, string status);
         Task<TaskObject?> GetTaskByTaskIdUserIdAsync(int taskId, int userId);
-        Task<TaskObject?> GetActiveTaskByIdAsync(int id);
-        Task<TaskObject?> GetTaskByIdAsync(int id);
+        Task<TaskObject?> GetActiveTaskByIdAsync(int taskId);
+        Task<TaskObject?> GetTaskByIdAsync(int taskid);
         Task<TaskObject> UpdateTaskAsync(TaskObject task);
 
 
@@ -82,15 +82,14 @@ namespace TaskManagementAPI.Repositories
                                             && t.UserId == userId 
                                             && t.IsActive);
         }
-        public async Task<TaskObject?> GetTaskByIdAsync(int id)
+        public async Task<TaskObject?> GetTaskByIdAsync(int taskId)
         {
             return await _context.Tasks
                 .Include(t => t.User)
-                .FirstOrDefaultAsync(t => t.Id == id);
+                .FirstOrDefaultAsync(t => t.Id == taskId);
         }
         public async Task<TaskObject> UpdateTaskAsync(TaskObject task)
         {
-            //_context.Tasks.Update(task);
             await _context.SaveChangesAsync();
             var newData = await GetTaskByIdAsync(task.Id);
             return newData!;

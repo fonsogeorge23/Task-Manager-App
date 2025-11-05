@@ -23,6 +23,8 @@ namespace TaskManagementAPI.Services
         // Method to update the task data
         Task<Result<TaskResponse>> UpdateTaskAsync(int id, TaskRequest request, int accessId);
 
+        // Method to Activate the inactive task
+        Task<Result<TaskResponse>> ActivateTaskAsync(int taskId, int userId);
 
 
 
@@ -43,14 +45,7 @@ namespace TaskManagementAPI.Services
 
 
 
-        Task<Result<TaskResponse>> ActivateTaskAsync(int taskId, int userId, string role);
         Task<Result<string>> InactivateTask(int taskId, int accessId);
-
-
-
-
-
-
         Task<Result<string>> DeleteTaskAsync(int id, int userId, string role);
     }
     public class TaskServices : ITaskService
@@ -209,6 +204,7 @@ namespace TaskManagementAPI.Services
             return Result<TaskResponse>.Success(response);
         }
 
+        // Helper method to get the active task by Id
         private async Task<TaskObject?> GetActiveTaskById(int taskId)
         {
             return await _taskRepository.GetActiveTaskByIdAsync(taskId);
@@ -250,62 +246,77 @@ namespace TaskManagementAPI.Services
             return updatedTask;
         }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        public async Task<Result<TaskResponse>> ActivateTaskAsync(int id, int accessId, string role)
-        {            
-            var task = await _taskRepository.GetTaskByIdAsync(id);
+        public async Task<Result<TaskResponse>> ActivateTaskAsync(int taskId, int accessId)
+        {
+            var task = await GetTaskObjectByIdAsync(taskId);
             if (task == null)
             {
-                return Result<TaskResponse>.Failure("Access denied / No task found");
+                return Result<TaskResponse>.Failure("No task found");
             }
+
+            // Access Control
+            var authorizedUser = await Authorized(accessId, task.UserId);
+            if (!authorizedUser.IsSuccess)
+                return Result<TaskResponse>.Failure($"{authorizedUser.Message} to update task");
 
             if (task.IsActive)
             {
-                return Result<TaskResponse>.Failure("Task is already active");
+                var response = _mapper.Map<TaskResponse>(task); 
+                return Result<TaskResponse>.Success(response, "Task already active");
             }
+
+            // If not active, activate and update
             task.IsActive = true;
-            var activatedTask = await _taskRepository.UpdateTaskAsync(task);
-            var response = _mapper.Map<TaskResponse>(activatedTask);
-            return Result<TaskResponse>.Success(response);
+            var activatedTask = await UpdateTaskAsync(task);
+            var activatedResponse = _mapper.Map<TaskResponse>(activatedTask); 
+            return Result<TaskResponse>.Success(activatedResponse, "Task activated");
         }
+
+        // Helper method to get task (active/inactive) by taskid
+        private async Task<TaskObject?> GetTaskObjectByIdAsync(int taskId)
+        {
+            var task = await _taskRepository.GetTaskByIdAsync(taskId); 
+            return task == null ? null : task;
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        /*******
+         NEED  TO WORK ON SOFT DELETE AND HARD DELETE FOR TASK AND AUTHORIZATION FOR USER         
+         
+         *******/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         public async Task<Result<string>> InactivateTask(int taskId, int accessId)
         {
