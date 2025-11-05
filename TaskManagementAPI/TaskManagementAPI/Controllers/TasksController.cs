@@ -33,7 +33,7 @@ namespace TaskManagementAPI.Controllers
         [Authorize]
         public async Task<IActionResult> GetAllTasksByStatus(int userId, [FromQuery] string? status)
         {
-            var result = await _taskService.GetTasksForUserAsync(userId, UserIdFromToken, RoleFromToken, status ??= "All");
+            var result = await _taskService.GetTasksForUserAsync(userId, UserIdFromToken, status ??= "All");
             return HandleResult<IEnumerable<TaskResponse>>(result);
         }
 
@@ -41,39 +41,36 @@ namespace TaskManagementAPI.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetTaskById(int id)
         {
-            var task = await _taskService.GetTaskByIdAsync(id, UserIdFromToken, RoleFromToken);
-
-            if (task == null)
-                return NotFound("Task not found or access denied.");
-
-            return Ok(task);
+            var task = await _taskService.GetTaskByIdAsync(id, UserIdFromToken);
+            return HandleResult(task);
         }
         #endregion
 
         #region UPDATE TASK
         [Authorize]
-        [HttpPut("update/{taskId}")]
+        [HttpPatch("update/{taskId}")]
         public async Task<IActionResult> UpdateTask(int taskId, [FromBody] TaskRequest request)
         {
-            var updatedTask = await _taskService.UpdateTaskAsync(taskId, request, UserIdFromToken, RoleFromToken);
+            var updatedTask = await _taskService.UpdateTaskAsync(taskId, request, UserIdFromToken);
             return HandleResult(updatedTask);
         }
 
-        [Authorize]
-        [HttpPatch("activate-task/{id}")]
-        public async Task<IActionResult> ActivateTask(int id)
-        { 
-            var activateTask = await _taskService.ActivateTaskAsync(id, UserIdFromToken, RoleFromToken);
+        //[Authorize]
+        [HttpPatch("activate-task/{taskId}")]
+        public async Task<IActionResult> ActivateTask(int taskId)
+        {
+            var activateTask = await _taskService.ActivateTaskAsync(taskId, UserIdFromToken, RoleFromToken);
+
             return HandleResult(activateTask);
         }
         #endregion
 
         #region DELETE/INACTIVATE TASK
         [Authorize]
-        [HttpPatch("inactivate/{id}")]
-        public async Task<IActionResult> InactivateTask(int id)
+        [HttpPatch("inactivate/{taskId}")]
+        public async Task<IActionResult> InactivateTask(int taskId)
         {
-            var result = await _taskService.InactivateTask(id, UserIdFromToken, RoleFromToken);
+            var result = await _taskService.InactivateTask(taskId, UserIdFromToken);
             if (!result.IsSuccess)
                 return Unauthorized(result.Message);
             return Ok(result);

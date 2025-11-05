@@ -26,13 +26,17 @@ namespace TaskManagementAPI.Services
         Task<Result<IEnumerable<UserResponse>>> GetAllActiveUsers();
 
         // Method to retrieve user by ID
-        Task<Result<UserResponse>> GetActiveUserByIdAsync(int accessId, int id);
+        Task<Result<UserResponse>> AuthorizedAction(int accessId, int id);
+
+        Task<Result<UserResponse>> GetActiveUserByIdAsync(int accessId, int userId);
 
         // Method to retrieve user by username
         Task<Result<UserResponse>> GetUserByUsername(UserRequest request);
 
         // Method to retrieve user by username
         Task<Result<UserResponse>> GetUserByEmail(UserRequest request);
+
+        Task<Result<UserResponse>> GetUserById(int userId);
 
         // Method to activate a user
         Task<Result<UserResponse>> ActivateUser(int accessingId, int userId);
@@ -90,7 +94,7 @@ namespace TaskManagementAPI.Services
             // FIX: Check if the user is null OR if PasswordHash is null/empty BEFORE calling BCrypt.Verify
             if (string.IsNullOrEmpty(username)|| string.IsNullOrEmpty(password))
             {
-                return Result<User>.Failure("Invalid username or password.");
+                return Result<User>.Failure("Invalid/Inactive username or password.");
             }
             var user = await _userRepository.GetUserCredentialsAsync(username, password);
 
@@ -142,7 +146,7 @@ namespace TaskManagementAPI.Services
             return Result<IEnumerable<UserResponse>>.Success(userResponses);
         }
 
-        public async Task<Result<UserResponse>> GetActiveUserByIdAsync(int accessId, int id)
+        public async Task<Result<UserResponse>> AuthorizedAction(int accessId, int id)
         {
             var user = await _userRepository.GetActiveUserByIdAsync(accessId);
 
@@ -151,12 +155,28 @@ namespace TaskManagementAPI.Services
                 var result = await _userRepository.GetActiveUserByIdAsync(id);
                 if(result == null)
                 {
-                    return Result<UserResponse>.Failure("No user found");
+                    return Result<UserResponse>.Failure("No active user found");
                 }
                 var userResponse = _mapper.Map<UserResponse>(result);
                 return Result<UserResponse>.Success(userResponse);
             }
-            return Result<UserResponse>.Failure("You are not authorized to access user information");
+            return Result<UserResponse>.Failure("Unauthorized");
+        }
+
+        public async Task<Result<UserResponse>> GetActiveUserByIdAsync(int accessId, int userId)
+        {
+            var authorizedUser = await AuthorizedAction(accessId, userId);
+            if (!authorizedUser.IsSuccess)
+            {
+                return Result<UserResponse>.Failure($"{authorizedUser.Message} - cannot view the user");
+            }
+            var user = await _userRepository.GetActiveUserByIdAsync(userId);
+            if (user == null)
+            {
+                return Result<UserResponse>.Failure("User not found / Inactive user.");
+            }
+            var userResponse = _mapper.Map<UserResponse>(user);
+            return Result<UserResponse>.Success(userResponse);
         }
 
         public async Task<Result<UserResponse>> GetUserByUsername(UserRequest request)
@@ -181,6 +201,16 @@ namespace TaskManagementAPI.Services
             return Result<UserResponse>.Success(userResponse);
         }
         
+        public async Task<Result<UserResponse>> GetUserById(int userId)
+        {
+            var user = await _userRepository.GetActiveUserByIdAsync(userId);
+            if (user == null)
+            {
+                return Result<UserResponse>.Failure("User not found / Inactive user");
+            }
+            var response = _mapper.Map<UserResponse>(user);
+            return Result<UserResponse>.Success(response);
+        }
         public async Task<Result<UserResponse>> ActivateUser(int updateId, int userId)
         {
             var user = await _userRepository.GetUserByIdAsync(userId);

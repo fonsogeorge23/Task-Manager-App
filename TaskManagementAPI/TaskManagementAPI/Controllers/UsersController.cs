@@ -66,9 +66,9 @@ namespace TaskManagementAPI.Controllers
 
         [Authorize]
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetUser(int id)
+        public async Task<IActionResult> GetUser(int userId)
         {
-            var userResponse = await _userService.GetActiveUserByIdAsync(UserIdFromToken, id);
+            var userResponse = await _userService.GetActiveUserByIdAsync(UserIdFromToken, userId);
             return HandleResult(userResponse);
         }
         #endregion

@@ -21,14 +21,12 @@ namespace TaskManagementAPI.Data
             modelBuilder.Entity<TaskObject>()
                 .Property(t => t.IsActive)
                 .HasDefaultValue(true);
-            modelBuilder.Entity<TaskObject>().HasQueryFilter(t => t.IsActive);
 
             modelBuilder.Entity<User>()
                 .Property(u => u.Role)
                 .HasConversion<string>();
             modelBuilder.Entity<User>().Property(u => u.IsActive)
                 .HasDefaultValue(true);
-            modelBuilder.Entity<User>().HasQueryFilter(u => u.IsActive);
         }
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

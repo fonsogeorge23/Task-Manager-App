@@ -36,12 +36,12 @@ namespace TaskManagementAPI.Repositories
         
         public async Task<User?> GetActiveUserByIdAsync(int id)
         {
-            return await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
+            return await _context.Users.FirstOrDefaultAsync(u => u.Id == id && u.IsActive);
         }
 
         public async Task<User?> GetUserByIdAsync(int id)
         {
-            return await _context.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Id == id);
+            return await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
         }
         public async Task<User?> GetUserByEmailAsync(string email)
         {
