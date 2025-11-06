@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using Azure.Core;
+using System.Data;
 using System.Threading.Tasks;
 using TaskManagementAPI.DTOs.Requests;
 using TaskManagementAPI.DTOs.Responses;
@@ -18,7 +19,7 @@ namespace TaskManagementAPI.Services
         Task<Result<IEnumerable<TaskResponse>>> GetTasksForUserAsync(int id, int accessId, string status);
         
         // Method to get task by Id for a user
-        Task<Result<TaskResponse>> GetTaskByIdAsync(int taskId, int accessId);
+        Task<Result<TaskResponse>> GetActiveTaskByIdAsync(int taskId, int accessId);
 
         // Method to update the task data
         Task<Result<TaskResponse>> UpdateTaskAsync(int id, TaskRequest request, int accessId);
@@ -26,27 +27,11 @@ namespace TaskManagementAPI.Services
         // Method to Activate the inactive task
         Task<Result<TaskResponse>> ActivateTaskAsync(int taskId, int userId);
 
+        // Method to inactivate task
+        Task<Result<TaskResponse>> InactivateTask(int taskId, int accessId);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        Task<Result<string>> InactivateTask(int taskId, int accessId);
-        Task<Result<string>> DeleteTaskAsync(int id, int userId, string role);
+        // Method to delete task for a user
+        Task<Result<string>> DeleteTaskAsync(int id, int userId);
     }
     public class TaskServices : ITaskService
     {
@@ -185,7 +170,10 @@ namespace TaskManagementAPI.Services
             return await _taskRepository.GetAllActiveTaskByStatus(userId, status);
         }
 
-        public async Task<Result<TaskResponse>> GetTaskByIdAsync(int taskId, int accessId)
+        /*
+         NEED TO WORK ON THIS
+         */
+        public async Task<Result<TaskResponse>> GetActiveTaskByIdAsync(int taskId, int accessId)
         {
             // Retrieve task from repository
             var task = await GetActiveTaskById(taskId);
@@ -212,66 +200,65 @@ namespace TaskManagementAPI.Services
 
         public async Task<Result<TaskResponse>> UpdateTaskAsync(int taskId, TaskRequest request, int accessId)
         {
-            // Access control
-            var authorizedUser = await Authorized(accessId, request.UserId);
-            if (!authorizedUser.IsSuccess)
-                return Result<TaskResponse>.Failure($"{authorizedUser.Message} to update task");
-
-            // Retrieve the task for user
-            var userTask = await GetActiveTaskByTaskIdUserId(taskId, request.UserId);
-            if (userTask == null)
+            var task = await GetTaskByTaskIdUserId(taskId, request.UserId);
+            if (task.IsSuccess)
             {
-                return Result<TaskResponse>.Failure("Task not found/Inactive");
+                return Result<TaskResponse>.Failure($"{task.Message} - Failed to update the task");
             }
-            _mapper.Map(request, userTask);
-            var updatedTask = await UpdateTaskAsync(userTask);
-            if (updatedTask == null)
+
+            var updatedTask = await UpdateTaskAsync(task.Data!);
+            if (!updatedTask.IsSuccess)
                 return Result<TaskResponse>.Failure("Failed to update task");
 
             var response = _mapper.Map<TaskResponse>(updatedTask);
             return Result<TaskResponse>.Success(response);
         }
 
-        // Helper method to get task for a user
-        private async Task<TaskObject?> GetActiveTaskByTaskIdUserId(int taskId, int userId)
-        {
-            var userTask = await _taskRepository.GetTaskByTaskIdUserIdAsync(taskId, userId);
-            return userTask == null ? null : userTask;
-        }
-
         // Helper method to update the task in DB
-        private async Task<TaskObject> UpdateTaskAsync(TaskObject task)
+        private async Task<Result<TaskObject>> UpdateTaskAsync(TaskObject task)
         {
-            var updatedTask = await _taskRepository.UpdateTaskAsync(task);
-            return updatedTask;
+            var updatingTask = await _taskRepository.UpdateTaskAsync(task);
+            return Result<TaskObject>.Success(updatingTask);
         }
 
         public async Task<Result<TaskResponse>> ActivateTaskAsync(int taskId, int accessId)
         {
-            var task = await GetTaskObjectByIdAsync(taskId);
-            if (task == null)
+            var task = await GetTaskByTaskIdUserId(taskId, accessId);
+            if (!task.IsSuccess)
             {
-                return Result<TaskResponse>.Failure("No task found");
+                return Result<TaskResponse>.Failure($"{task.Message} - Failed to activate");
             }
 
-            // Access Control
-            var authorizedUser = await Authorized(accessId, task.UserId);
-            if (!authorizedUser.IsSuccess)
-                return Result<TaskResponse>.Failure($"{authorizedUser.Message} to update task");
-
-            if (task.IsActive)
+            if (task.Data!.IsActive)
             {
-                var response = _mapper.Map<TaskResponse>(task); 
+                var response = _mapper.Map<TaskResponse>(task.Data); 
                 return Result<TaskResponse>.Success(response, "Task already active");
             }
 
             // If not active, activate and update
-            task.IsActive = true;
-            var activatedTask = await UpdateTaskAsync(task);
-            var activatedResponse = _mapper.Map<TaskResponse>(activatedTask); 
+            task.Data.IsActive = true;
+            var activatedTask = await UpdateTaskAsync(task.Data);
+            var activatedResponse = _mapper.Map<TaskResponse>(activatedTask.Data); 
             return Result<TaskResponse>.Success(activatedResponse, "Task activated");
         }
 
+        // Helper method to get any task with taskId and accessId
+        private async Task<Result<TaskObject>> GetTaskByTaskIdUserId(int taskId, int accessId)
+        {
+            var task = await GetTaskObjectByIdAsync(taskId);
+            if(task == null)
+            {
+                return Result<TaskObject>.Failure("No task found");
+            }
+
+            // Access Control 
+            var authorizedUser = await Authorized(accessId, task.UserId);
+            if (!authorizedUser.IsSuccess)
+                return Result<TaskObject>.Failure($"{authorizedUser.Message} - Unauthorized");
+
+            return Result<TaskObject>.Success(task);
+        }
+        
         // Helper method to get task (active/inactive) by taskid
         private async Task<TaskObject?> GetTaskObjectByIdAsync(int taskId)
         {
@@ -280,79 +267,44 @@ namespace TaskManagementAPI.Services
         }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-        /*******
-         NEED  TO WORK ON SOFT DELETE AND HARD DELETE FOR TASK AND AUTHORIZATION FOR USER         
-         
-         *******/
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        public async Task<Result<string>> InactivateTask(int taskId, int accessId)
+        public async Task<Result<TaskResponse>> InactivateTask(int taskId, int accessId)
         {
-            var task = await _taskRepository.GetActiveTaskByTaskIdUserIdAsync(taskId, accessId);
-            //var task = await GetTaskByIdAsync(taskId, accessId);
-            if(task == null)
+            var task = await GetActiveTaskByTaskIdUserId(taskId, accessId);
+            if (!task.IsSuccess)
             {
-                if(task?.User.Role == UserRole.Admin)
-                {
-                    task = await _taskRepository.GetActiveTaskByIdAsync(taskId);
-                }
-                if(task == null)
-                {
-                    return Result<string>.Failure("Task not found/access denied");
-                }
+                return Result<TaskResponse>.Failure($"{task.Message} - Failed to inactivate the task");
             }
-            task.IsActive = false;
-            await _taskRepository.InactivateTaskAsync(task);
-            return Result<string>.Success("Task is inactive");
+            task.Data!.IsActive = false;
+            var updatedTask = await UpdateTaskAsync(task.Data);
+            var response = _mapper.Map<TaskResponse>(updatedTask.Data);
+            return Result<TaskResponse>.Success(response);
         }
 
-        public async Task<Result<string>> DeleteTaskAsync(int id, int userId, string role)
+        // Helper method to get task for a user
+        private async Task<Result<TaskObject>> GetActiveTaskByTaskIdUserId(int taskId, int accessId)
         {
-            var deletingTask = await _taskRepository.GetActiveTaskByTaskIdUserIdAsync(id, userId);
-            if (deletingTask == null)
+            var task = await GetActiveTaskById(taskId);
+            if (task == null)
             {
-                if (role == "Admin")
-                {
-                    deletingTask = await _taskRepository.GetActiveTaskByIdAsync(id);
-                }
-                if (deletingTask == null)
-                {
-                    return Result<string>.Failure("Task not found/access denied");
-                }
+                return Result<TaskObject>.Failure("No task found / Inactive");
             }
-            //await _taskRepository.DeleteTaskAsync(deletingTask);
+            // Access control
+            var authorizedUser = await Authorized(accessId, task.UserId);
+            if (!authorizedUser.IsSuccess)
+                return Result<TaskObject>.Failure("Unauthorized");
+
+            var userTask = await _taskRepository.GetActiveTaskByTaskIdUserIdAsync(taskId, task.UserId);
+            return Result<TaskObject>.Success(userTask!);
+        }
+
+        public async Task<Result<string>> DeleteTaskAsync(int id, int accessId)
+        {
+            var deletingTask = await GetTaskByTaskIdUserId(id, accessId);
+            if (!deletingTask.IsSuccess)
+            {
+                return Result<string>.Failure($"{deletingTask.Message} to delete task");
+            }
+            await _taskRepository.DeleteTaskAsync(deletingTask.Data!);
             return Result<string>.Success("Task deleted successfully");
         }
     }

@@ -41,7 +41,7 @@ namespace TaskManagementAPI.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetTaskById(int id)
         {
-            var task = await _taskService.GetTaskByIdAsync(id, UserIdFromToken);
+            var task = await _taskService.GetActiveTaskByIdAsync(id, UserIdFromToken);
             return HandleResult(task);
         }
         #endregion
@@ -71,19 +71,15 @@ namespace TaskManagementAPI.Controllers
         public async Task<IActionResult> InactivateTask(int taskId)
         {
             var result = await _taskService.InactivateTask(taskId, UserIdFromToken);
-            if (!result.IsSuccess)
-                return Unauthorized(result.Message);
-            return Ok(result);
+            return HandleResult(result);
         }
 
         [Authorize]
         [HttpDelete("delete/{id}")]
         public async Task<IActionResult> DeleteTask(int id)
         {
-            var result = await _taskService.DeleteTaskAsync(id, UserIdFromToken, RoleFromToken);
-            if (!result.IsSuccess)
-                return Unauthorized(result.Message);
-            return Ok(result);
+            var result = await _taskService.DeleteTaskAsync(id, UserIdFromToken);
+            return HandleResult(result);
         }
         #endregion
     }
