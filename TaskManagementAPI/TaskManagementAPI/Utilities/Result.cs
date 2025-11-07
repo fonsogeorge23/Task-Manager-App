@@ -48,10 +48,9 @@
         public DateTime Timestamp { get; } = DateTime.UtcNow;
 
         // Private constructor for success
-        private Result()
+        private Result(bool success)
         {
-            IsSuccess = true;
-            Message = null;
+            IsSuccess = success;
         }
         // Private constructor for failure
         private Result(bool success, string message)
@@ -62,10 +61,11 @@
 
 
         // Static factory method for success.
-        public static Result Success() => new Result();
+        public static Result Success() => new Result(true);
 
         public static Result Success(string message) => new Result(true, message);
 
+        public static Result Failure() => new Result(false);
         public static Result Failure(string errorMessage) => new Result(false, errorMessage);
     }
 }

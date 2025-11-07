@@ -8,6 +8,6 @@ namespace TaskManagementAPI.DTOs.Responses
         public string UserName { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public UserRole Role { get; set; } = UserRole.Guest;
-        public bool IsActive { get; set; } = true;
+        public bool IsActive { get; set; }
     }
 }

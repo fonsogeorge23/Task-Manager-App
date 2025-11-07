@@ -1,5 +1,4 @@
 ﻿using AutoMapper;
-using System.Runtime.InteropServices;
 using TaskManagementAPI.DTOs.Requests;
 using TaskManagementAPI.DTOs.Responses;
 using TaskManagementAPI.Models;
@@ -10,17 +9,32 @@ namespace TaskManagementAPI.Services
 {
     public interface IUserService
     {
-        // Updated signature to use the Result<T> pattern
+        // Method to register new user
         Task<Result<UserResponse>> CreateUserAsync(UserRequest request, int creatorId);
 
-        // Method to authenticate user 
-        Task<Result<User>> AuthenticateUserAsync(string username, string password);
-
-        // Method to generate token for authenticated user
-        Task<Result<UserResponse>> GenerateToken(User user);
+        // Method to authenticate the login credentials
+        Task<Result<UserResponse>> AuthenticateUser(LoginRequest request);
 
         // Method to get all users
-        Task<Result<IEnumerable<UserResponse>>> GetAllUsers();
+        Task<Result<IEnumerable<UserResponse>>> GetAllUsers(int accessId, bool? active);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         // Method to retrieve all users
         Task<Result<IEnumerable<UserResponse>>> GetAllActiveUsers();
@@ -36,7 +50,7 @@ namespace TaskManagementAPI.Services
         // Method to retrieve user by username
         Task<Result<UserResponse>> GetUserByEmail(UserRequest request);
 
-        Task<Result<UserResponse>> GetUserById(int userId);
+        Task<Result<UserResponse>> GetActiveUserById(int userId);
 
         // Method to activate a user
         Task<Result<UserResponse>> ActivateUser(int accessingId, int userId);
@@ -68,7 +82,7 @@ namespace TaskManagementAPI.Services
 
         public async Task<Result<UserResponse>> CreateUserAsync(UserRequest request, int creatorId)
         {
-            var validRequest = await ValidateRequestAsync(request);
+            var validRequest = await ValidateUserRequestAsync(request);
             if(!validRequest.IsSuccess)
             {
                 return Result<UserResponse>.Failure(validRequest.Message);
@@ -76,66 +90,199 @@ namespace TaskManagementAPI.Services
 
             // Map UserRequest to User entity
             var user = _mapper.Map<User>(validRequest.Data);
-
-            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+            user.PasswordHash = await GetHashCode(request.Password);
 
             // Save user to the database
-            var createdUser = await _userRepository.RegisterUserAsync(user);
+            var createdUser = await RegisterUser(user);
 
-            // Map and return success result
-            var userResponse = _mapper.Map<UserResponse>(createdUser);
-
-            return Result<UserResponse>.Success(userResponse, "New user registered successfully");
+            return createdUser;
         }
 
-        public async Task<Result<User>> AuthenticateUserAsync(string username, string password)
-        { 
-
-            // FIX: Check if the user is null OR if PasswordHash is null/empty BEFORE calling BCrypt.Verify
-            if (string.IsNullOrEmpty(username)|| string.IsNullOrEmpty(password))
+        // Helper method to validate request and assign role
+        private async Task<Result<UserRequest>> ValidateUserRequestAsync(UserRequest request)
+        {
+            // Basic validation
+            if (request == null)
             {
-                return Result<User>.Failure("Invalid/Inactive username or password.");
+                return Result<UserRequest>.Failure("Request cannot be null.");
             }
-            var user = await _userRepository.GetUserCredentialsAsync(username, password);
 
-            if(user == null || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
+            if (string.IsNullOrWhiteSpace(request.Email))
             {
-                return Result<User>.Failure("Invalid username or password.");
+                return Result<UserRequest>.Failure("Enter a valid email");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+            {
+                return Result<UserRequest>.Failure("Username and password are required.");
+            }
+
+            // Checking user existing or not
+            var existingUser = await GetUser(request);
+            if (existingUser.IsSuccess)
+            {
+                return Result<UserRequest>.Failure($"{existingUser.Message} - Invalid request");
+            }
+            
+            var requestRole = ValidateRole(request.Role);
+            request.Role = requestRole.ToString();
+            return Result<UserRequest>.Success(request);
+        }
+
+        // Helper method to get user by username or email
+        private async Task<Result<User>> GetUser(UserRequest request)
+        {
+            var user = await GetUserByUsername(request.Username);
+            if (user == null)
+            {
+                user = await GetUserByEmail(request.Email);
+            }
+            if (user == null)
+            {
+                return Result<User>.Failure("No user exist");
+            }
+            return Result<User>.Success(user);
+        }
+
+        // Helper method to get the user by username
+        private async Task<User?> GetUserByUsername(string username)
+        {
+            return await _userRepository.GetUserByUsernameAsync(username);
+
+        }
+
+        // Helper method to get the user by email
+        private async Task<User?> GetUserByEmail(string email)
+        {
+            return await _userRepository.GetUserByEmailAsync(email);
+        }
+
+        // Helper method to validate and parse role
+        private UserRole ValidateRole(string role)
+        {
+            if (!Enum.TryParse<UserRole>(role, true, out var parsedRole))
+            {
+                return UserRole.Guest;
+            }
+            return parsedRole;
+        }
+
+        private Task<string> GetHashCode(string str)
+        {
+            // BCrypt.Net.BCrypt.HashPassword is synchronous, so do not use await
+            return Task.FromResult(BCrypt.Net.BCrypt.HashPassword(str));
+        }
+
+        private async Task<Result<UserResponse>> RegisterUser(User user)
+        {
+            var newUser = await _userRepository.RegisterUserAsync(user);
+            if (newUser == null)
+            {
+                Result<UserResponse>.Failure("User not registered");
+            }
+            var response = _mapper.Map<UserResponse>(newUser);
+            return Result<UserResponse>.Success(response, "User Registered successfully");
+        }
+
+        public async Task<Result<UserResponse>> AuthenticateUser(LoginRequest request)
+        {
+            var requestUser = await ValidateLoginRequest(request);
+            if (!requestUser.IsSuccess)
+            {
+                return Result<UserResponse>.Failure($"{requestUser.Message} - Failed login");
+            }
+
+            var (validUser, token) = await GenerateToken(requestUser.Data!);
+            return Result<UserResponse>.Success(validUser.Data!, token);
+        }
+
+        // Helper method to validate and authenticate the login request
+        private async Task<Result<User>> ValidateLoginRequest(LoginRequest request)
+        {
+            // Basic Request validation
+            if (string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password))
+            {
+                return Result<User>.Failure("Invalid Username or password");
+            }
+            var user = await _userRepository.GetUserCredentialsAsync(request);
+
+            if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+            {
+                return Result<User>.Failure("No user - check Username/Password");
             }
 
             // Successful authentication
             return Result<User>.Success(user);
         }
 
-        public async Task<Result<UserResponse>> GenerateToken(User user)
+        // Helper method to generate token for a valid user login
+        private async Task<(Result<UserResponse> Result, string Token)> GenerateToken(User user)
         {
-            var token = await _jwtAuthManager.GenerateToken(
+            var generatedToken = await _jwtAuthManager.GenerateToken(
                 user.Id,
                 user.Username,
                 user.Role.ToString()
             );
-            return Result<UserResponse>.Success(new UserResponse
+
+            //var userResponse = new UserResponse
+            //{
+            //    Id = user.Id,
+            //    UserName = user.Username,
+            //    Email = user.Email,
+            //    Role = user.Role
+            //};
+
+            var response = _mapper.Map<UserResponse>(user);
+            return (Result<UserResponse>.Success(response), generatedToken);
+        }
+        
+        public async Task<Result<IEnumerable<UserResponse>>> GetAllUsers(int accessId, bool? active)
+        {
+            var users = await GetAllUsersService(accessId, active);
+            if (!users.IsSuccess)
             {
-                Id = user.Id,
-                UserName = user.Username,
-                Email = user.Email,
-                Role = user.Role
-            }, token);
+                return Result<IEnumerable<UserResponse>>.Failure($"{users.Message} - No users information available");
+            }
+
+            return ProcessUserListResult(users.Data!, "No user found");
         }
 
-        public async Task<Result<IEnumerable<UserResponse>>> GetAllUsers()
+        // Helper method to get all active/inactive users
+        private async Task<Result<IEnumerable<User>>> GetAllUsersService(int accessId, bool? active = null)
         {
-            var users = await _userRepository.GetAllUsersAsync();
+            var authorizedAccess = await AuthorizedUser(accessId);
+            if (!authorizedAccess.IsSuccess)
+            {
+                return Result<IEnumerable<User>>.Failure(authorizedAccess.Message);
+            }
+            IEnumerable<User> usersList;
+            if (active == null)
+            {
+                usersList = await _userRepository.GetAllUsersAsync();
+            }
+            else
+            {
+                usersList = await _userRepository.GetAllActiveUsersAsync(active.Value);
+            }
+            //var usersList = await _userRepository.GetAllActiveUsersAsync(active);
 
-            return ProcessUserListResult(users, "No user found");
+            return Result<IEnumerable<User>>.Success(usersList);
         }
 
-        public async Task<Result<IEnumerable<UserResponse>>> GetAllActiveUsers()
+        // Helper method to authorize admin to access data
+        private async Task<Result> AuthorizedUser(int accessId)
         {
-            var users = await _userRepository.GetAllActiveUsersAsync();
-            return ProcessUserListResult(users, "No active users");
+            var user = await _userRepository.GetActiveUserByIdAsync(accessId);
+            if (user == null)
+            {
+                return Result.Failure("No user exist / Unauthorized user");
+            }
+            if (user.Role == UserRole.Admin)
+            {
+                return Result.Success();
+            }
+            return Result.Failure();
         }
-
         private Result<IEnumerable<UserResponse>> ProcessUserListResult(IEnumerable<User> users, string notFoundMessage)
         {
             if (users == null || !users.Any())
@@ -153,7 +300,7 @@ namespace TaskManagementAPI.Services
             if (user?.Role == UserRole.Admin || accessId == id)
             {
                 var result = await _userRepository.GetActiveUserByIdAsync(id);
-                if(result == null)
+                if (result == null)
                 {
                     return Result<UserResponse>.Failure("No active user found");
                 }
@@ -162,6 +309,28 @@ namespace TaskManagementAPI.Services
             }
             return Result<UserResponse>.Failure("Unauthorized");
         }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        public async Task<Result<IEnumerable<UserResponse>>> GetAllActiveUsers()
+        {
+            var users = await _userRepository.GetAllActiveUsersAsync();
+            return ProcessUserListResult(users, "No active users");
+        }
+
+
+        
 
         public async Task<Result<UserResponse>> GetActiveUserByIdAsync(int accessId, int userId)
         {
@@ -201,7 +370,7 @@ namespace TaskManagementAPI.Services
             return Result<UserResponse>.Success(userResponse);
         }
         
-        public async Task<Result<UserResponse>> GetUserById(int userId)
+        public async Task<Result<UserResponse>> GetActiveUserById(int userId)
         {
             var user = await _userRepository.GetActiveUserByIdAsync(userId);
             if (user == null)
@@ -232,14 +401,14 @@ namespace TaskManagementAPI.Services
             {
                 return Result<UserResponse>.Failure("User not found with provided username or email.");
             }
-            var updatedUser = await UpdateUserAsync(updateId, user, request);
+            var updatedUser = await UpdateUserAsync(updateId, user.Data!, request);
             return updatedUser;
         }
 
         public async Task<Result<UserResponse>> UserProfileUpdate(int userId, UserRequest request)
         {
             var user = await GetUser(request);
-            if(user?.Id != userId)
+            if(user.Data?.Id != userId)
             {
                 return Result<UserResponse>.Failure("You are not authorized to update the profile");
             }
@@ -247,20 +416,10 @@ namespace TaskManagementAPI.Services
             {
                 return Result<UserResponse>.Failure("User not found.");
             }
-            var updatedUser = await UpdateUserAsync(userId, user, request);
+            var updatedUser = await UpdateUserAsync(userId, user.Data, request);
             return updatedUser;
         }
 
-        // Helper method to get user by username or email
-        private async Task<User?> GetUser(UserRequest request)
-        {
-            var user = await _userRepository.GetUserByUsernameAsync(request.Username);
-            if (user == null)
-            {
-                user = await _userRepository.GetUserByEmailAsync(request.Email);
-            }
-            return user;
-        }
 
         // Helper method to update user details
         private async Task<Result<UserResponse>> UpdateUserAsync(int updateId, User user, UserRequest request)
@@ -291,7 +450,7 @@ namespace TaskManagementAPI.Services
                     return Result<string>.Failure("Invalid user information");
                 }
 
-                var result = await _userRepository.DeleteUserAsync(existingUser);
+                var result = await _userRepository.DeleteUserAsync(existingUser.Data!);
 
                 return result ? Result<string>.Success("User deleted successfully.")
                                 : Result<string>.Failure("Failed to delete user.");
@@ -310,8 +469,8 @@ namespace TaskManagementAPI.Services
                     return Result<UserResponse>.Failure("Invalid user information");
                 }
 
-                existingUser.IsActive = false;
-                var result = await _userRepository.UpdateUserAsync(existingUser);
+                existingUser.Data!.IsActive = false;
+                var result = await _userRepository.UpdateUserAsync(existingUser.Data!);
                 var user = _mapper.Map<UserResponse>(result);
 
                 return Result<UserResponse>.Success(user);
@@ -327,56 +486,12 @@ namespace TaskManagementAPI.Services
 
             if (accessingUser != null && accessedUserRecord != null)
             {
-                if (accessingUser.Role == UserRole.Admin || id == accessedUserRecord.Id)
+                if (accessingUser.Role == UserRole.Admin || id == accessedUserRecord.Data!.Id)
                 {
                     return true;
                 }
             }
             return false;
-        }
-
-        // Helper method to validate and parse role
-        private UserRole ValidateRole(string role)
-        {
-            if (!Enum.TryParse<UserRole>(role, true, out var parsedRole))
-            {
-                return UserRole.Guest;
-            }
-            return parsedRole;
-        }
-
-        // Helper method to validate request and assign role
-        private async Task<Result<UserRequest>> ValidateRequestAsync(UserRequest request)
-        {
-            // Basic validation
-            if (request == null)
-            {
-                return Result<UserRequest>.Failure("Request cannot be null.");
-            }
-
-            if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
-            {
-                return Result<UserRequest>.Failure("Username and password are required.");
-            }
-
-            // Checking user existing or not
-            var existingUser = await GetUserByUsername(request);
-            if(existingUser.IsSuccess)
-            {
-                return Result<UserRequest>.Failure("Username/Email already exists.");
-            }
-            else
-            {
-                existingUser = await GetUserByEmail(request);
-                if(existingUser.IsSuccess)
-                {
-                    return Result<UserRequest>.Failure("Username/Email already exists.");
-                }
-            }
-
-            var requestRole = ValidateRole(request.Role);
-            request.Role = requestRole.ToString();
-            return Result<UserRequest>.Success(request);
         }
     }
 }

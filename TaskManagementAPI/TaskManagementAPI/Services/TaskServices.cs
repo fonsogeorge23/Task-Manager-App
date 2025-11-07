@@ -85,7 +85,7 @@ namespace TaskManagementAPI.Services
         // Helper method to check if user is active
         private async Task<bool> ActiveUserExist(int userId)
         {
-            var user = await _userService.GetUserById(userId);
+            var user = await _userService.GetActiveUserById(userId);
             return user.IsSuccess;
         }
 

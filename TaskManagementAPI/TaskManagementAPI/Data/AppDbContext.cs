@@ -25,7 +25,8 @@ namespace TaskManagementAPI.Data
             modelBuilder.Entity<User>()
                 .Property(u => u.Role)
                 .HasConversion<string>();
-            modelBuilder.Entity<User>().Property(u => u.IsActive)
+            modelBuilder.Entity<User>()
+                .Property(u => u.IsActive)
                 .HasDefaultValue(true);
         }
 

@@ -33,35 +33,26 @@ namespace TaskManagementAPI.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
-            // 1. Authenticate the user (call to the service layer to check credentials)
-            var authenticatedUser = await _userService.AuthenticateUserAsync(request.Username, request.Password);
-
-            if (!authenticatedUser.IsSuccess)
-            {
-                // Authentication failed (e.g., bad username or password)
-                return Unauthorized(authenticatedUser.Message);
-            }
-            var tokenResult = await _userService.GenerateToken(authenticatedUser.Data);
-            return HandleResult(tokenResult);
-
+            var authentication = await _userService.AuthenticateUser(request);
+            return HandleResult(authentication);
         }
         #endregion
 
-        #region GET USERS
-        [Authorize]
-        [HttpGet("active-users")]
-        public async Task<IActionResult> GetAllActiveUsers()
-        {
-            var usersResponse = await _userService.GetAllActiveUsers();
-            return HandleResult<IEnumerable<UserResponse>>(usersResponse);
-        }
 
-        [Authorize]
+
+
+
+
+        /****************************************************
+                  Need to work on the below methods
+         ****************************************************/
+        #region GET USERS
+        [Authorize(Roles ="Admin")]
         [HttpGet("all")]
-        public async Task<IActionResult> GetAllUsers()
+        public async Task<IActionResult> GetAllUsers(bool? active)
         {
-            var usersResponse = await _userService.GetAllUsers();
-            return HandleResult<IEnumerable<UserResponse>>(usersResponse);
+            var userResponse = await _userService.GetAllUsers(UserIdFromToken, active);
+            return HandleResult(userResponse);
         }
 
         [Authorize]
