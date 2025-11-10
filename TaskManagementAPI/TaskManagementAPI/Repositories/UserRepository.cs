@@ -59,7 +59,7 @@ namespace TaskManagementAPI.Repositories
         public async Task<User?> GetUserCredentialsAsync(LoginRequest request)
         {
             return await _context.Users.FirstOrDefaultAsync(u =>
-            EF.Functions.Collate(u.Username, "SQL_Latin1_General_CP1_CS_AS") == request.Username);
+            EF.Functions.Collate(u.Username, "SQL_Latin1_General_CP1_CS_AS") == request.Username && u.IsActive == true);
         }
 
         public async Task<IEnumerable<User>> GetAllUsersAsync()
@@ -74,9 +74,8 @@ namespace TaskManagementAPI.Repositories
         }
         public async Task<User?> UpdateUserAsync(User user)
         {
-            _context.Users.Update(user);
             await _context.SaveChangesAsync();
-            return await _context.Users.IgnoreQueryFilters<User>().FirstOrDefaultAsync(u => u.Id == user.Id);
+            return await GetUserByIdAsync(user.Id);
         }
 
         public async Task<bool> DeleteUserAsync(User user)

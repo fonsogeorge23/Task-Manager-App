@@ -40,11 +40,11 @@
         public static Result<T> Failure (string errorMessage) => new Result<T>(errorMessage);
     }
 
-    // A non-generic version for operations that do not return data
+    // Update the Message property to be nullable to resolve CS8618
     public class Result
-    { 
+    {
         public bool IsSuccess { get; }
-        public string Message { get; }
+        public string? Message { get; }
         public DateTime Timestamp { get; } = DateTime.UtcNow;
 
         // Private constructor for success
@@ -58,7 +58,6 @@
             IsSuccess = success;
             Message = message;
         }
-
 
         // Static factory method for success.
         public static Result Success() => new Result(true);

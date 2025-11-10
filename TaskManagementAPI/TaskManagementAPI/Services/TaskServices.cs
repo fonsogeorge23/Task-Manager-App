@@ -69,24 +69,25 @@ namespace TaskManagementAPI.Services
         private async Task<Result> Authorized(int accessId, int userId)
         {
             // user active check
-            bool activeAccessUser = await ActiveUserExist(accessId);
-            bool activeTargetUser = await ActiveUserExist(userId);
-
+            bool activeAccessUser = (await ActiveUserExist(accessId)).IsSuccess;
+            bool activeTargetUser = (await ActiveUserExist(userId)).IsSuccess;
             if (!activeAccessUser || !activeTargetUser)
                 return Result.Failure("Access denied - inactive/no user");
 
             // authorization check
             var user = await AuthorizedActionCheck(accessId, userId);
             if (!user.IsSuccess)
-                return Result.Failure(user.Message);
+                return Result.Failure(user.Message!);
             return Result.Success();
         }
 
         // Helper method to check if user is active
-        private async Task<bool> ActiveUserExist(int userId)
+        private async Task<Result> ActiveUserExist(int userId)
         {
             var user = await _userService.GetActiveUserById(userId);
-            return user.IsSuccess;
+            if (!user.IsSuccess)
+                return Result.Failure();
+            return Result.Success();
         }
 
         // Helper method to check if action is authorized
@@ -94,7 +95,7 @@ namespace TaskManagementAPI.Services
         {
             var authorizationResult = await _userService.AuthorizedAction(accessId, targetId);
             if (!authorizationResult.IsSuccess)
-                return Result.Failure(authorizationResult.Message);
+                return Result.Failure(authorizationResult.Message!);
             return Result.Success();
         }
 
@@ -119,7 +120,11 @@ namespace TaskManagementAPI.Services
             }
 
             if (tasks == null || !tasks.Any())
+            {
+                if (status.Equals("All", StringComparison.OrdinalIgnoreCase))
+                    status = "";
                 return Result<IEnumerable<TaskResponse>>.Failure($"No {status ?? "active"} tasks for user");
+            }
 
             return Result<IEnumerable<TaskResponse>>.Success(tasks);
         }

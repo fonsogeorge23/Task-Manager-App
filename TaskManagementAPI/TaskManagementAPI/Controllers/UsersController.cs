@@ -38,14 +38,6 @@ namespace TaskManagementAPI.Controllers
         }
         #endregion
 
-
-
-
-
-
-        /****************************************************
-                  Need to work on the below methods
-         ****************************************************/
         #region GET USERS
         [Authorize(Roles ="Admin")]
         [HttpGet("all")]
@@ -56,10 +48,10 @@ namespace TaskManagementAPI.Controllers
         }
 
         [Authorize]
-        [HttpGet("{id}")]
+        [HttpGet("{userId}")]
         public async Task<IActionResult> GetUser(int userId)
         {
-            var userResponse = await _userService.GetActiveUserByIdAsync(UserIdFromToken, userId);
+            var userResponse = await _userService.GetUserById(UserIdFromToken, userId);
             return HandleResult(userResponse);
         }
         #endregion
@@ -69,19 +61,18 @@ namespace TaskManagementAPI.Controllers
         [HttpPatch("update-profile")]
         public async Task<IActionResult> UpdateUserProfile([FromBody] UserRequest request)
         {
-            var userId = UserIdFromToken;
-            if (RoleFromToken.Equals("Admin"))
-            {
-                var updateUser = await _userService.AdminUserUpdate(userId, request);
-                return HandleResult(updateUser);
-            }
-            else
-            {
-                var updatedUserResponse = await _userService.UserProfileUpdate(userId, request);
-                return HandleResult(updatedUserResponse);
-            }
+            var updateUser = await _userService.UpdateUser(request, UserIdFromToken);
+            return HandleResult(updateUser);
         }
 
+
+
+
+
+
+        /****************************************************
+                  Need to work on the below methods
+         ****************************************************/
         [Authorize]
         [HttpPatch("activate-users/{id}")]
         public async Task<IActionResult> ActivateUser(int id)
