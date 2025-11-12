@@ -19,38 +19,38 @@ namespace TaskManagementAPI.Services
         // Method to get all users
         Task<Result<IEnumerable<UserResponse>>> GetAllUsers(int accessId, bool? active);
 
-        // Method to retrieve user by ID
-        Task<Result> AuthorizedAction(int accessId, int? id = null);
+        // Method to checked authorized user action 
+        Task<Result> AuthorizedAction(int userId, int? accessId = null);
 
         // Method to get any user by userId
-        Task<Result<User>> GetUserById(int accessId, int? userId = null);
+        Task<Result<User>> GetUserById(int userId, int? accessId = null);
 
         // Method to get active user information by userId
-        Task<Result<UserResponse>> GetActiveUserById(int accessId, int? userId = null);
+        Task<Result<UserResponse>> GetActiveUserById(int userId, int? accessId = null);
 
         // Method to update the user information 
-        Task<Result<UserResponse>> UpdateUser(UserRequest request, int updatingId);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        Task<Result<UserResponse>> UpdateUser(UserRequest request, int? updatingId = null);
 
         // Method to activate a user
-        Task<Result<UserResponse>> ActivateUser(int accessingId, int userId);
+        Task<Result<UserResponse>> ActivateUser(int userId, int updateId);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         // Method for Admin to update user
         Task<Result<UserResponse>> AdminUserUpdate(int updateId, UserRequest request);
 
@@ -279,7 +279,7 @@ namespace TaskManagementAPI.Services
             {
                 return Result.Success();
             }
-            return Result.Failure("Unauthorized");
+            return Result.Failure("Failed to authorize the action");
         }
         
         // Helper method to Process user list to User Response
@@ -294,17 +294,16 @@ namespace TaskManagementAPI.Services
         }
 
 
-        public async Task<Result<User>> GetUserById(int accessId, int? userId = null)
+        public async Task<Result<User>> GetUserById(int userId, int? accessId = null)
         {
             // Access control
-            var authorizedUser = await AuthorizedAction(accessId, userId);
+            var authorizedUser = await AuthorizedAction(userId, accessId);
             if (!authorizedUser.IsSuccess)
             {
                 return Result<User>.Failure($"{authorizedUser.Message} - cannot view the user");
             }
 
-            int targetUserId = userId ?? accessId;
-            var user = await _userRepository.GetUserByIdAsync(targetUserId);
+            var user = await _userRepository.GetUserByIdAsync(userId);
             if (user == null)
             {
                 return Result<User>.Failure("No user found");
@@ -313,20 +312,20 @@ namespace TaskManagementAPI.Services
         }
 
 
-        public async Task<Result<UserResponse>> GetActiveUserById(int accessId, int? userId = null)
+        public async Task<Result<UserResponse>> GetActiveUserById(int userId, int? accessId = null)
         {
-
-            if(userId != null)
+            // Access control
+            if(accessId != null)
             {
-                var authorizedUser = await AuthorizedAction(accessId, userId);
+                var authorizedUser = await AuthorizedAction(accessId.Value);
                 if (!authorizedUser.IsSuccess)
                 {
                     return Result<UserResponse>.Failure($"{authorizedUser.Message} - cannot view the user");
                 }
             }
 
-            int targetUserId = userId ?? accessId; // if userId not provided, use accessId
-            var user = await _userRepository.GetActiveUserByIdAsync(targetUserId);
+
+            var user = await _userRepository.GetActiveUserByIdAsync(userId);
             if (user == null)
             {
                 return Result<UserResponse>.Failure("User not found / Inactive user.");
@@ -336,27 +335,37 @@ namespace TaskManagementAPI.Services
         }
         
 
-        public async Task<Result> AuthorizedAction(int accessId, int? id = null)
+        public async Task<Result> AuthorizedAction(int userId, int? accessId = null)
         {
             // base condition
-            if (id != null && accessId == id )
+            if (accessId != null && userId == accessId)
             {
                 return Result.Success();
             }
 
-            return await AuthorizedUser(accessId);
+            // if admin accessing user info
+            return await AuthorizedUser(userId);
         }
 
 
-        public async Task<Result<UserResponse>> UpdateUser(UserRequest request, int updatingId)
+        public async Task<Result<UserResponse>> UpdateUser(UserRequest request, int? updatingId = null)
         {
-            var authorisedToUpdate = await AuthorizedAction(updatingId);
-            if (!authorisedToUpdate.IsSuccess)
+            // Access control
+            if(updatingId != null)
             {
-                authorisedToUpdate = await checkAuthorizedToUpdate(request, updatingId);
-                if (!authorisedToUpdate.IsSuccess)
+                var authorizedToUpdate = await AuthorizedUser(updatingId.Value);
+                if (!authorizedToUpdate.IsSuccess)
                 {
-                    return Result<UserResponse>.Failure($"{authorisedToUpdate.Message} - Failed to update");
+                    var user = await GetUser(request);
+                    if (!user.IsSuccess)
+                    {
+                        return Result<UserResponse>.Failure($"{authorizedToUpdate.Message} - Failed to update");
+                    }
+                    authorizedToUpdate = await AuthorizedAction(user.Data!.Id, updatingId);
+                    if (!authorizedToUpdate.IsSuccess)
+                    {
+                        return Result<UserResponse>.Failure($"{authorizedToUpdate.Message} - Failed to update");
+                    }
                 }
             }
 
@@ -368,17 +377,8 @@ namespace TaskManagementAPI.Services
             return updatedUser;
         }
 
-        // Helper method to check update by authorized user or not
-        private async Task<Result> checkAuthorizedToUpdate(UserRequest request, int updatingId)
-        {
-            var user = await GetUser(request);
-            if(user.IsSuccess && user.Data!.Id == updatingId && user.Data.IsActive)
-                return Result.Success();
-            return Result.Failure("Unauthorized");
-        }
-
         // Helper method to update user details
-        private async Task<Result<UserResponse>> UpdateUserAsync( UserRequest request)
+        private async Task<Result<UserResponse>> UpdateUserAsync(UserRequest request)
         {
             var user = await GetUser(request);
             if (!user.IsSuccess)
@@ -398,6 +398,33 @@ namespace TaskManagementAPI.Services
             var updatedUser = await _userRepository.UpdateUserAsync(updatedUserData!);
             var userResponse = _mapper.Map<UserResponse>(updatedUser);
             return Result<UserResponse>.Success(userResponse);
+        }
+
+        // Only Admin can activate the user
+        public async Task<Result<UserResponse>> ActivateUser(int userId, int updateId)
+        {
+            // Access control 
+            var authorisedToUpdate = await AuthorizedAction(updateId);
+            if (!authorisedToUpdate.IsSuccess)
+            {
+               authorisedToUpdate = await AuthorizedAction(userId, updateId);
+                if (!authorisedToUpdate.IsSuccess)
+                {
+                    return Result<UserResponse>.Failure($"{authorisedToUpdate.Message} - Failed to update");
+                }
+            }
+            var user = await _userRepository.GetUserByIdAsync(userId);
+            if (user == null)
+            {
+                return Result<UserResponse>.Failure("User not found");
+            }
+            user.IsActive = true;
+
+            var request = _mapper.Map<UserRequest>(user);
+            return await UpdateUser(request);
+            //var result = await _userRepository.UpdateUserAsync(user);
+            //var response = _mapper.Map<UserResponse>(result);
+            //return Result<UserResponse>.Success(response);
         }
 
 
@@ -423,19 +450,6 @@ namespace TaskManagementAPI.Services
         /****************************************************
                   Need to work on the below methods
          ****************************************************/
-        public async Task<Result<UserResponse>> ActivateUser(int updateId, int userId)
-        {
-            var user = await _userRepository.GetUserByIdAsync(userId);
-            if (user == null)
-            {
-                return Result<UserResponse>.Failure("User not found");
-            }
-            user.IsActive = true;
-
-            var result = await _userRepository.UpdateUserAsync(user);
-            var response = _mapper.Map<UserResponse>(result);
-            return Result<UserResponse>.Success(response);
-        }
 
         public async Task<Result<UserResponse>> AdminUserUpdate(int updateId, UserRequest request)
         {

@@ -91,9 +91,9 @@ namespace TaskManagementAPI.Services
         }
 
         // Helper method to check if action is authorized
-        private async Task<Result> AuthorizedActionCheck(int accessId, int targetId)
+        private async Task<Result> AuthorizedActionCheck(int targetId, int accessId)
         {
-            var authorizationResult = await _userService.AuthorizedAction(accessId, targetId);
+            var authorizationResult = await _userService.AuthorizedAction(targetId, accessId);
             if (!authorizationResult.IsSuccess)
                 return Result.Failure(authorizationResult.Message!);
             return Result.Success();

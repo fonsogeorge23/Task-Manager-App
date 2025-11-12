@@ -51,7 +51,7 @@ namespace TaskManagementAPI.Controllers
         [HttpGet("{userId}")]
         public async Task<IActionResult> GetUser(int userId)
         {
-            var userResponse = await _userService.GetUserById(UserIdFromToken, userId);
+            var userResponse = await _userService.GetUserById(userId, UserIdFromToken);
             return HandleResult(userResponse);
         }
         #endregion
@@ -65,6 +65,16 @@ namespace TaskManagementAPI.Controllers
             return HandleResult(updateUser);
         }
 
+        [Authorize]
+        [HttpPatch("activate-users/{userId}")]
+        public async Task<IActionResult> ActivateUser(int userId)
+        {
+            var activatedUser = await _userService.ActivateUser(userId, UserIdFromToken);
+            return HandleResult(activatedUser);
+        }
+        #endregion
+
+
 
 
 
@@ -73,15 +83,6 @@ namespace TaskManagementAPI.Controllers
         /****************************************************
                   Need to work on the below methods
          ****************************************************/
-        [Authorize]
-        [HttpPatch("activate-users/{id}")]
-        public async Task<IActionResult> ActivateUser(int id)
-        {
-            var activatedUser = await _userService.ActivateUser(UserIdFromToken, id);
-            return HandleResult(activatedUser);
-        }
-        #endregion
-
         #region DELETE USER
         [Authorize]
         [HttpDelete("delete-profile/{hardDelete}")]
