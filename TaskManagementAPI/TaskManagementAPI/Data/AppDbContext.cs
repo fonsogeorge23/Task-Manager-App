@@ -33,7 +33,7 @@ namespace TaskManagementAPI.Data
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             var entries = ChangeTracker.Entries<Base>();
-            var currentUserId = GetCurrentUserId();
+            var currentUserId = GetCurrentUserId();         // UserId is 0 if we not authorized
 
             foreach (var entry in entries)
             {

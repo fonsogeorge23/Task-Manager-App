@@ -15,7 +15,7 @@ namespace TaskManagementAPI.Utilities
      /// <param name="username">The username of the user.</param>
      /// <param name="role">The role of the user.</param>
      /// <returns>A Task that represents the asynchronous operation, yielding the generated JWT token string.</returns>
-        Task<string> GenerateToken(int userId, string username, string role);
+        Task<string> GenerateToken(User user);
     }
 
     public class JwtAuthManager : IJwtAuthManager
@@ -32,16 +32,16 @@ namespace TaskManagementAPI.Utilities
         /// <summary>
         /// Generates a JWT token synchronously and wraps the result in a Task to satisfy the async interface.
         /// </summary>
-        public Task<string> GenerateToken(int userId, string username, string role)
+        public Task<string> GenerateToken(User user)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var tokenKey = Encoding.UTF8.GetBytes(_key);
 
             var claims = new[]
             {
-                new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-                new Claim(ClaimTypes.Name, username),
-                new Claim(ClaimTypes.Role, role)
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Name, user.Username),
+                new Claim(ClaimTypes.Role, user.Role.ToString())
             };
 
             var tokenDescriptor = new SecurityTokenDescriptor

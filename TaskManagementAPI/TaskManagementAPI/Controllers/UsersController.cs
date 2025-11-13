@@ -12,7 +12,6 @@ namespace TaskManagementAPI.Controllers
     [ApiController]
     public class UsersController : BaseController
     {
-        // NOTE: The IUserService implementation needs to be updated with AuthenticateUserAsync.
         private readonly IUserService _userService;
 
         public UsersController(IUserService userService)
@@ -22,36 +21,36 @@ namespace TaskManagementAPI.Controllers
 
         #region REGISTER NEW USER
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] UserRequest request)
+        public async Task<IActionResult> Register(UserRequest request)
         {
-            var userResponse = await _userService.CreateUserAsync(request, UserIdFromToken);
+            var userResponse = await _userService.CreateUserService(request);
             return HandleResult(userResponse);
         }
         #endregion
 
         #region USER LOGIN
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginRequest request)
+        public async Task<IActionResult> Login(LoginRequest request)
         {
-            var authentication = await _userService.AuthenticateUser(request);
+            var authentication = await _userService.AuthenticateUserService(request);
             return HandleResult(authentication);
         }
         #endregion
 
         #region GET USERS
-        [Authorize(Roles ="Admin")]
+        [Authorize(Roles = "Admin")]
         [HttpGet("all")]
         public async Task<IActionResult> GetAllUsers(bool? active)
         {
-            var userResponse = await _userService.GetAllUsers(UserIdFromToken, active);
+            var userResponse = await _userService.GetAllUsersService(active, UserIdFromToken);
             return HandleResult(userResponse);
         }
 
         [Authorize]
-        [HttpGet("{userId}")]
-        public async Task<IActionResult> GetUser(int userId)
+        [HttpPost("user")]
+        public async Task<IActionResult> GetUser([FromBody] UserRequest request)
         {
-            var userResponse = await _userService.GetUserById(userId, UserIdFromToken);
+            var userResponse = await _userService.GetUserService(request, UserIdFromToken);
             return HandleResult(userResponse);
         }
         #endregion
@@ -61,43 +60,34 @@ namespace TaskManagementAPI.Controllers
         [HttpPatch("update-profile")]
         public async Task<IActionResult> UpdateUserProfile([FromBody] UserRequest request)
         {
-            var updateUser = await _userService.UpdateUser(request, UserIdFromToken);
+            var updateUser = await _userService.UpdateUserService(request, UserIdFromToken);
             return HandleResult(updateUser);
         }
 
         [Authorize]
-        [HttpPatch("activate-users/{userId}")]
-        public async Task<IActionResult> ActivateUser(int userId)
+        [HttpPatch("activate-users")]
+        public async Task<IActionResult> ActivateUser(UserRequest request)
         {
-            var activatedUser = await _userService.ActivateUser(userId, UserIdFromToken);
+            var activatedUser = await _userService.ActivateUserService(request, UserIdFromToken);
             return HandleResult(activatedUser);
         }
         #endregion
 
-
-
-
-
-
-
-        /****************************************************
-                  Need to work on the below methods
-         ****************************************************/
-        #region DELETE USER
+        #region DELETE/INACTIVATE USER
         [Authorize]
         [HttpDelete("delete-profile/{hardDelete}")]
-        public async Task<IActionResult> DeleteProfile(bool hardDelete, UserRequest request)
+        public async Task<IActionResult> DeleteProfile(UserRequest request, bool hardDelete)
         {
             var userId = UserIdFromToken;
 
             if (hardDelete)
             {
-                var deletedUser = await _userService.HardDeleteUserAsync(userId, request);
+                var deletedUser = await _userService.HardDeleteUserService(request, userId);
                 return HandleResult(deletedUser);
             }
             else
             {
-                var inactivatedUser = await _userService.SoftDeleteUserAsync(userId, request);
+                var inactivatedUser = await _userService.InactivateUserService(request, userId);
                 return HandleResult(inactivatedUser);
             }
         }

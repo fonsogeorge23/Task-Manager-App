@@ -7,7 +7,7 @@
         // The successfull data payload
         public T? Data { get; }
         public bool IsSuccess { get; }
-        public string Message { get; }
+        public string? Message { get; }
         public DateTime Timestamp { get; } = DateTime.UtcNow;
 
         // Private constructors for success
@@ -15,7 +15,6 @@
         {
             Data = data;
             IsSuccess = true;
-            Message = null;
         }
         private Result(T data, string message)
         {
