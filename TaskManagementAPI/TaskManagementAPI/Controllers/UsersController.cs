@@ -21,9 +21,16 @@ namespace TaskManagementAPI.Controllers
 
         #region REGISTER NEW USER
         [HttpPost("register")]
+        [AllowAnonymous]
         public async Task<IActionResult> Register(UserRequest request)
         {
-            var userResponse = await _userService.CreateUserService(request);
+            int accessUserId = 0; // Default: no token (public registration)
+
+            if (User.Identity?.IsAuthenticated == true)
+            {
+                accessUserId = UserIdFromToken; // Admin token only
+            }
+            var userResponse = await _userService.CreateUserService(request, accessUserId);
             return HandleResult(userResponse);
         }
         #endregion
@@ -47,51 +54,51 @@ namespace TaskManagementAPI.Controllers
         }
 
         [Authorize]
-        [HttpPost("user")]
-        public async Task<IActionResult> GetUser([FromBody] UserRequest request)
+        [HttpPost("user/{userId}")]
+        public async Task<IActionResult> GetUser(int userId)
         {
-            var userResponse = await _userService.GetUserService(request, UserIdFromToken);
+            var userResponse = await _userService.GetUserService(userId, UserIdFromToken);
             return HandleResult(userResponse);
         }
         #endregion
 
         #region UPDATE USER PROFILE
         [Authorize]
-        [HttpPatch("update-profile")]
-        public async Task<IActionResult> UpdateUserProfile([FromBody] UserRequest request)
+        [HttpPatch("update-profile/{userId}")]
+        public async Task<IActionResult> UpdateUserProfile(int userId, [FromBody] UserRequest request)
         {
-            var updateUser = await _userService.UpdateUserService(request, UserIdFromToken);
+            var updateUser = await _userService.UpdateUserService(userId, request, UserIdFromToken);
             return HandleResult(updateUser);
         }
 
-        [Authorize]
-        [HttpPatch("activate-users")]
-        public async Task<IActionResult> ActivateUser(UserRequest request)
-        {
-            var activatedUser = await _userService.ActivateUserService(request, UserIdFromToken);
-            return HandleResult(activatedUser);
-        }
+        //[Authorize]
+        //[HttpPatch("activate-users")]
+        //public async Task<IActionResult> ActivateUser(UserRequest request)
+        //{
+        //    var activatedUser = await _userService.ActivateUserService(request, UserIdFromToken);
+        //    return HandleResult(activatedUser);
+        //}
         #endregion
 
-        #region DELETE/INACTIVATE USER
-        [Authorize]
-        [HttpDelete("delete-profile/{hardDelete}")]
-        public async Task<IActionResult> DeleteProfile(UserRequest request, bool hardDelete)
-        {
-            var userId = UserIdFromToken;
+        //#region DELETE/INACTIVATE USER
+        //[Authorize]
+        //[HttpDelete("delete-profile/{hardDelete}")]
+        //public async Task<IActionResult> DeleteProfile(UserRequest request, bool hardDelete)
+        //{
+        //    var userId = UserIdFromToken;
 
-            if (hardDelete)
-            {
-                var deletedUser = await _userService.HardDeleteUserService(request, userId);
-                return HandleResult(deletedUser);
-            }
-            else
-            {
-                var inactivatedUser = await _userService.InactivateUserService(request, userId);
-                return HandleResult(inactivatedUser);
-            }
-        }
-        #endregion
+        //    if (hardDelete)
+        //    {
+        //        var deletedUser = await _userService.HardDeleteUserService(request, userId);
+        //        return HandleResult(deletedUser);
+        //    }
+        //    else
+        //    {
+        //        var inactivatedUser = await _userService.InactivateUserService(request, userId);
+        //        return HandleResult(inactivatedUser);
+        //    }
+        //}
+        //#endregion
 
         #region DEBUG - GET USER INFO FROM TOKEN
         // ==============================================

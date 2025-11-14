@@ -17,20 +17,20 @@ namespace TaskManagementAPI.Services
         Task<Result<LoginResponse>> AuthenticateUserService(LoginRequest request);
 
         // Method to register a new user to the system
-        Task<Result<UserResponse>> CreateUserService(UserRequest request);
+        Task<Result<UserResponse>> CreateUserService(UserRequest request, int createUserId);
 
         // Method for admin to get all user data, active or inactive
         Task<Result<IEnumerable<UserResponse>>> GetAllUsersService(bool? active, int userId);
 
         // Method to get user info (Admin can get inactive user info too)
-        Task<Result<UserResponse>> GetUserService(UserRequest request, int userId);
+        Task<Result<UserResponse>> GetUserService(int userId, int accesssId);
 
         Task<Result<string>> HardDeleteUserService(UserRequest request, int accessId);
 
         Task<Result<UserResponse>> InactivateUserService(UserRequest request, int accessId);
 
         // Method to Update the user Service (Admin can update any user data)
-        Task<Result<UserResponse>> UpdateUserService(UserRequest request, int userIdFromToken);
+        Task<Result<UserResponse>> UpdateUserService(int targetUserId, UserRequest request, int userIdFromToken);
     }
     public class UserServices : IUserService
     {
@@ -47,13 +47,14 @@ namespace TaskManagementAPI.Services
 
         public async Task<Result<UserResponse>> ActivateUserService(UserRequest request, int userIdFromToken)
         {
-            var user = await GetUser(request);
-            if (!user.IsSuccess || user.Data!.IsActive)
-            {
-                Result<UserResponse>.Failure($"{user.Message} - Failed to activate user");
-            }
-            user.Data!.IsActive = true;
-            return await UpdateUser(user.Data);
+            throw new NotImplementedException();
+            //var user = await GetUser(request);
+            //if (!user.IsSuccess || user.Data!.IsActive)
+            //{
+            //    Result<UserResponse>.Failure($"{user.Message} - Failed to activate user");
+            //}
+            //user.Data!.IsActive = true;
+            //return await UpdateUser(user.Data);
         }
 
         // Method to authenticate user login request (mapping happening in public method)
@@ -78,17 +79,17 @@ namespace TaskManagementAPI.Services
         }
 
         // Method to register a new user to the system
-        public async Task<Result<UserResponse>> CreateUserService(UserRequest request)
+        public async Task<Result<UserResponse>> CreateUserService(UserRequest request, int createUserId)
         {
             // Validate the incoming user request
             var validRequest = await ValidateUserRequest(request);
-            if (!validRequest.IsSuccess || string.IsNullOrWhiteSpace(validRequest.Message))
+            if (!validRequest.IsSuccess)
             {
                 return Result<UserResponse>.Failure(validRequest.Message!);
             }
 
             // Save user to the database and return response
-            return await RegisterUser(request);
+            return await RegisterUser(request, createUserId);
 
         }
 
@@ -96,7 +97,7 @@ namespace TaskManagementAPI.Services
         public async Task<Result<IEnumerable<UserResponse>>> GetAllUsersService(bool? active, int userIdFromToken)
         {
             // check admin user active or not
-            var activeAdmin = await ValidUser(userIdFromToken);
+            var activeAdmin = await GetActiveUser(userIdFromToken);
             if(!activeAdmin.IsSuccess)
             {
                 return Result<IEnumerable<UserResponse>>.Failure($"{activeAdmin.Message} - Failed to retrieve");
@@ -130,17 +131,17 @@ namespace TaskManagementAPI.Services
         }
 
         // Method to get user info (Admin can get inactive user info too)
-        public async Task<Result<UserResponse>> GetUserService(UserRequest request, int userId)
+        public async Task<Result<UserResponse>> GetUserService(int userId, int accesssId)
         {
 
-            var validAccess = await ValidateAccessUser(request, userId);
+            var validAccess = await ValidateAccessUser(userId, accesssId);
             if (!validAccess.IsSuccess)
             {
                 return Result<UserResponse>.Failure($"{validAccess.Message} - Failed to get user for request");
             }
 
             // returning the user info
-            var userResult = await GetUser(request);
+            var userResult = await GetUserById(userId);
             if (!userResult.IsSuccess || userResult.Data == null)
             {
                 return Result<UserResponse>.Failure($"{userResult.Message} - User not found");
@@ -155,34 +156,36 @@ namespace TaskManagementAPI.Services
 
         public async Task<Result<string>> HardDeleteUserService(UserRequest request, int accessId)
         {
-            var authorizedUser = await ValidateAccessUser(request, accessId);
-            if (!authorizedUser.IsSuccess)
-            {
-                Result<string>.Failure($"{authorizedUser.Message} - Failed to delete user");
-            }
-            return await DeleteUser(request);
+            throw new NotImplementedException();
+            //var authorizedUser = await ValidateAccessUser(request, accessId);
+            //if (!authorizedUser.IsSuccess)
+            //{
+            //    Result<string>.Failure($"{authorizedUser.Message} - Failed to delete user");
+            //}
+            //return await DeleteUser(request);
         }
 
         public async Task<Result<UserResponse>> InactivateUserService(UserRequest request, int userId)
         {
-            var authorizedUser = await ValidateAccessUser(request, userId);
-            if (!authorizedUser.IsSuccess)
-            {
-                Result<string>.Failure($"{authorizedUser.Message} - Failed to inactivate user");
-            }
-            return await InactivateUser(request);
+            throw new NotImplementedException();
+            //var authorizedUser = await ValidateAccessUser(request, userId);
+            //if (!authorizedUser.IsSuccess)
+            //{
+            //    Result<string>.Failure($"{authorizedUser.Message} - Failed to inactivate user");
+            //}
+            //return await InactivateUser(request);
         }
 
         // Method to Update the user Service (Admin can update any user data)
-        public async Task<Result<UserResponse>> UpdateUserService(UserRequest request, int userId)
+        public async Task<Result<UserResponse>> UpdateUserService(int targetUserId, UserRequest request, int accessUserId)
         {
-            var authorizedUser = await ValidateAccessUser(request, userId);
-            if (!authorizedUser.IsSuccess)
-            {
-                Result<string>.Failure($"{authorizedUser.Message} - Failed to update user");
-            }
+            //throw new NotImplementedException();
+            // Check for authorized user info access
+            var access = await ValidateAccessUser(targetUserId, accessUserId);
+            if (!access.IsSuccess)
+                return Result<UserResponse>.Failure($"{access.Message} - Failed to update user");
 
-            return await UpdateUser(request);
+            return await UpdateUser(request, targetUserId, accessUserId);
         }
 
         /********************************************************
@@ -205,6 +208,8 @@ namespace TaskManagementAPI.Services
         //13. GetUserByEmail                    -> using email from UserRequest to get user info
         //15. ValidateAccessUser                -> validate the user accessing the info is authorized, if yes return the user info
         //16. UpdateUser(UserRequest)           -> update existing user data to the DB
+        //    ValidateUsername(Username)        -> method to validate Username entering is existing or not
+        //    ValidateEmail(Email)              -> method to validate email entering is existing or not
         //17. DeleteUser(User)                  -> method to remove the user data from DB
         //18. InactivateUser(User)              -> method to inactivate the user
         /********************************************************/
@@ -249,6 +254,7 @@ namespace TaskManagementAPI.Services
             }
             return Result.Failure(user.Message!);
         }
+
         // Helper method to validate the role 
         private UserRole ValidateRole(string role)
         {
@@ -266,19 +272,49 @@ namespace TaskManagementAPI.Services
         }
 
         // Helper method to insert user to the DB
-        private async Task<Result<UserResponse>> RegisterUser(UserRequest request)
+        private async Task<Result<UserResponse>> RegisterUser(UserRequest request, int createUserId)
         {
             // Checking user exist
             var userExist = await UserExist(request);
             if (userExist.IsSuccess)
             {
-                var existingUser = _mapper.Map<UserResponse>(GetUser(request));
-                return Result<UserResponse>.Success(existingUser, "User already exist");
+                var existingUser = await GetUser(request);
+                var existingUserResponse = _mapper.Map<UserResponse>(existingUser.Data);
+                return Result<UserResponse>.Success(existingUserResponse, "User already exist");
             }
+
+            // checking if "Admin" is being created
+            if (request.Role == UserRole.Admin.ToString())
+            {
+                if(createUserId > 0)
+                {
+                    var adminUser = await GetUserById(createUserId);
+                    if(adminUser.Data!.Role == UserRole.Admin)
+                    {
+                        request.Role = UserRole.Admin.ToString();
+                    }
+                }
+                else
+                {
+                    request.Role = UserRole.User.ToString();
+                }
+            }
+            
 
             // Map UserRequest to User entity
             var user = _mapper.Map<User>(request);
             user.PasswordHash = await GetHashCode(request.Password);
+
+            // checking if "Admin" is being created
+            if(request.Role == UserRole.Admin.ToString())
+            {
+                var adminUser = await GetUserById(createUserId);
+                if(adminUser.Data!.Role != UserRole.Admin)
+                {
+                    request.Role = UserRole.User.ToString();
+                }
+            }
+
             var newUser = await _userRepository.RegisterUserAsync(user);
             if (newUser == null)
             {
@@ -325,14 +361,14 @@ namespace TaskManagementAPI.Services
         }
 
         // Helper method to validate a active user
-        private async Task<Result> ValidUser(int userId)
+        private async Task<Result<User>> GetActiveUser(int userId)
         {
-            var validUser = await GetUserById(userId);
-            if (!validUser.IsSuccess || !validUser.Data!.IsActive)
+            var activeUser = await GetUserById(userId);
+            if (!activeUser.IsSuccess || !activeUser.Data!.IsActive)
             {
-                return Result.Failure($"{validUser.Message} / Inactive");
+                return Result<User>.Failure(" Unauthorized / Inactive");
             }
-            return Result.Success();
+            return activeUser;
         }
 
         // Helper method to get user info by Id
@@ -341,7 +377,7 @@ namespace TaskManagementAPI.Services
             var user = await _userRepository.GetUserByIdAsync(id);
             if(user == null)
             {
-                Result<User>.Failure("User not exist");
+                return Result<User>.Failure("User not exist");
             }
             return Result<User>.Success(user!);
         }
@@ -404,73 +440,146 @@ namespace TaskManagementAPI.Services
         }
 
         // Helper method to validate the user accessing the info is authorized
-        private async Task<Result> ValidateAccessUser(UserRequest request, int userId)
+        private async Task<Result> ValidateAccessUser(int targetUserId, int accessUserId)
         {
-            var user = await GetUser(request);
+            if(targetUserId == 0 || accessUserId == 0)
+                return Result.Failure("User Id cannot be 0");
 
-            // if the access user is active and existing
-            if (user.IsSuccess)
-            {
-                var adminUser = await GetUserById(userId);
-                // if user is accessing his own info or "Admin" is access the info
-                if((userId == user.Data!.Id && user.Data!.IsActive) || adminUser.Data!.Role == UserRole.Admin)
-                {
-                    return Result.Success("Authorized");
-                }
-            }
+            // If users is active or not
+            var currentUser = await GetActiveUser(accessUserId);
+            var targetUser = await GetUserById(targetUserId);
+
+            if (!currentUser.IsSuccess)
+                return Result.Failure("Unauthorized / User is inactive");
+
+            if (!targetUser.IsSuccess)
+                return Result.Failure("Target user not found");
+
+            // If the user accessing info is an "Admin" or their own info
+            if (currentUser.Data!.Role == UserRole.Admin)
+                return Result.Success();
+
+            if (targetUser.Data!.Id == accessUserId)
+                return Result.Success();
+
             return Result.Failure("Unauthorized");
         }
 
-        // Helper method to 
-        private async Task<Result<UserResponse>> UpdateUser(UserRequest request)
+        // Helper method to update user info from request
+        private async Task<Result<UserResponse>> UpdateUser(UserRequest request, int userId, int accessUserId)
         {
-            var user = await GetUser(request);
+            var user = await GetUserById(userId);
             if (!user.IsSuccess)
-            {
                 return Result<UserResponse>.Failure(user.Message!);
-            }
+
+            var accessUser = await GetUserById(accessUserId);
+
+            if (!accessUser.IsSuccess)
+                return Result<UserResponse>.Failure("Access user not found");
+
+            var entity = user.Data!;
+            var actor = accessUser.Data!;
 
             // Mapping request data to user
-            _mapper.Map(request, user);
+
+            // Update Username
+            if (!string.IsNullOrWhiteSpace(request.Username) &&
+                request.Username != entity.Username)
+            {
+                var username = await ValidateUsername(request.Username);
+                if (!username.IsSuccess)
+                {
+                    return Result<UserResponse>.Failure($"{username} is invalid.");
+                }
+                entity.Username = username.Data!;
+            }
+
+            // Update Email
+            if (!string.IsNullOrWhiteSpace(request.Email) &&
+                request.Email != entity.Email)
+            {
+                var email = await ValidateEmail(request.Email);
+                if (!email.IsSuccess)
+                {
+                    return Result<UserResponse>.Failure($"{email} is invalid.");
+                }
+                entity.Email = email.Data!;
+            }
+
+            // Update Password
             if (!string.IsNullOrWhiteSpace(request.Password))
             {
-                user.Data!.PasswordHash = await GetHashCode(request.Password);
+                entity.PasswordHash = await GetHashCode(request.Password);
             }
-            return await UpdateUser(user.Data!);
+
+            // Update Role - only admin can create another admin
+            if (!string.IsNullOrWhiteSpace(request.Role) &&
+                request.Role != entity.Role.ToString())
+            {
+                var requestedRole = ValidateRole(request.Role);
+                // Only admins may change roles
+                if (actor.Role == UserRole.Admin)
+                    entity.Role = requestedRole;
+                else
+                    entity.Role = UserRole.User;
+            }
+
+            return await UpdateUserCore(entity);
         }
-        
+
+        // Helper method to validate Username entering is existing or not
+        private async Task<Result<string>> ValidateUsername(string username)
+        {
+            var user = await GetUserByUsername(username);
+            if (user.IsSuccess)
+            {
+                Result<string>.Failure("Username already exist");
+            }
+            return Result<string>.Success(username);
+        }
+
+        // Helper method to validate email entering is existing or not
+        private async Task<Result<string>> ValidateEmail(string email)
+        {
+            var user = await GetUserByEmail(email);
+            if (user.IsSuccess)
+            {
+                Result<string>.Failure("email already exist");
+            }
+            return Result<string>.Success(email);
+        }
         // Helper method to update the user data in DB
-        private async Task<Result<UserResponse>> UpdateUser(User user)
+        private async Task<Result<UserResponse>> UpdateUserCore(User user)
         {
             var updatedUser = await _userRepository.UpdateUserAsync(user);
             var response = _mapper.Map<UserResponse>(updatedUser);
-            return Result<UserResponse>.Success(response);
+            return Result<UserResponse>.Success(response, "User data updated successfully");
         }
 
-        // Helper method to remove the user record
-        private async Task<Result<string>> DeleteUser(UserRequest request)
-        {
-            var user = await GetUser(request);
-            _mapper.Map(request, user.Data);
-            var deletedUser = await _userRepository.DeleteUserAsync(user.Data!);
-            if (!deletedUser)
-            {
-                Result<string>.Failure("Failed to delete");
-            }
-            return Result<string>.Success("User deleted successfully");
-        }
+        //// Helper method to remove the user record
+        //private async Task<Result<string>> DeleteUser(UserRequest request)
+        //{
+        //    var user = await GetUser(request);
+        //    _mapper.Map(request, user.Data);
+        //    var deletedUser = await _userRepository.DeleteUserAsync(user.Data!);
+        //    if (!deletedUser)
+        //    {
+        //        Result<string>.Failure("Failed to delete");
+        //    }
+        //    return Result<string>.Success("User deleted successfully");
+        //}
 
-        // Helper method to inactivate the user
-        private async Task<Result<UserResponse>> InactivateUser(UserRequest request)
-        {
-            var user = await GetUser(request);
-            if (!user.Data!.IsActive)
-            {
-                Result<UserResponse>.Failure("User already active");
-            }
-            _mapper.Map(request, user.Data);
-            user.Data!.IsActive = false;
-            return await UpdateUser(user.Data!);
-        }
+        //// Helper method to inactivate the user
+        //private async Task<Result<UserResponse>> InactivateUser(UserRequest request)
+        //{
+        //    var user = await GetUser(request);
+        //    if (!user.Data!.IsActive)
+        //    {
+        //        Result<UserResponse>.Failure("User already active");
+        //    }
+        //    _mapper.Map(request, user.Data);
+        //    user.Data!.IsActive = false;
+        //    return await UpdateUser(user.Data!);
+        //}
     }
 }
