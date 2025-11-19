@@ -19,7 +19,7 @@ namespace TaskManagementAPI.Models
         [Required]
         public string PasswordHash { get; set; } = string.Empty;
 
-        public UserRole Role { get; set; } = UserRole.User;
+        public UserRole Role { get; set; } = UserRole.Guest;
 
 
         // Navigation property for tasks created/owned by the user

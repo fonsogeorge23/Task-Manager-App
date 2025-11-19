@@ -4,6 +4,7 @@ using System.Security.Claims;
 using TaskManagementAPI.DTOs.Requests;
 using TaskManagementAPI.DTOs.Responses;
 using TaskManagementAPI.Services;
+using TaskManagementAPI.Utilities;
 using LoginRequest = TaskManagementAPI.DTOs.Requests.LoginRequest;
 
 namespace TaskManagementAPI.Controllers
@@ -71,34 +72,35 @@ namespace TaskManagementAPI.Controllers
             return HandleResult(updateUser);
         }
 
-        //[Authorize]
-        //[HttpPatch("activate-users")]
-        //public async Task<IActionResult> ActivateUser(UserRequest request)
-        //{
-        //    var activatedUser = await _userService.ActivateUserService(request, UserIdFromToken);
-        //    return HandleResult(activatedUser);
-        //}
+        [Authorize(Roles = "Admin")]
+        [HttpPatch("activate-user/{userId}")]
+        public async Task<IActionResult> ActivateUser(int userId)
+        {
+            var activatedUser = await _userService.ActivateUserService(userId, UserIdFromToken);
+            return HandleResult(activatedUser);
+        }
         #endregion
 
-        //#region DELETE/INACTIVATE USER
-        //[Authorize]
-        //[HttpDelete("delete-profile/{hardDelete}")]
-        //public async Task<IActionResult> DeleteProfile(UserRequest request, bool hardDelete)
-        //{
-        //    var userId = UserIdFromToken;
-
-        //    if (hardDelete)
-        //    {
-        //        var deletedUser = await _userService.HardDeleteUserService(request, userId);
-        //        return HandleResult(deletedUser);
-        //    }
-        //    else
-        //    {
-        //        var inactivatedUser = await _userService.InactivateUserService(request, userId);
-        //        return HandleResult(inactivatedUser);
-        //    }
-        //}
-        //#endregion
+        #region DELETE/INACTIVATE USER
+        [Authorize]
+        [HttpDelete("delete-profile")]
+        public async Task<IActionResult> DeleteProfile(int userId, bool hardDelete)
+        {
+            int accessId = UserIdFromToken;
+            var role = RoleFromToken;
+            if (hardDelete && role == UserRole.Admin)
+            {
+                var deletedUser = await _userService.HardDeleteUserService(userId, accessId);
+                return HandleResult(deletedUser);
+            }
+            else if (!hardDelete)
+            {
+                var inactivatedUser = await _userService.InactivateUserService(userId, accessId);
+                return HandleResult(inactivatedUser);
+            }
+            return HandleResult(Result<string>.Failure("Unauthorized action"));
+        }
+        #endregion
 
         #region DEBUG - GET USER INFO FROM TOKEN
         // ==============================================

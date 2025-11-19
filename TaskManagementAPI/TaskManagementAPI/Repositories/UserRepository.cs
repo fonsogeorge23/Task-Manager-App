@@ -72,6 +72,7 @@ namespace TaskManagementAPI.Repositories
             return await _context.Users
                 .Where(u => u.IsActive == (active?? true)).ToListAsync();
         }
+
         public async Task<User?> UpdateUserAsync(User user)
         {
             _context.Users.Update(user);

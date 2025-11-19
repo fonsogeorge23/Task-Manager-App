@@ -29,8 +29,8 @@ namespace TaskManagementAPI.Controllers
         #endregion
 
         #region RETRIEVE TASKS
-        [HttpGet("user-tasks/{userId}")]
         [Authorize]
+        [HttpGet("user-tasks/{userId}")]
         public async Task<IActionResult> GetAllTasksByStatus(int userId, [FromQuery] string? status)
         {
             var result = await _taskService.GetTasksForUserAsync(userId, UserIdFromToken, status ??= "All");

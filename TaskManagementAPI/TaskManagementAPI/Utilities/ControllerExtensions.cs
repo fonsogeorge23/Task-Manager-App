@@ -19,11 +19,16 @@ namespace TaskManagementAPI.Utilities
             return user.FindFirst(ClaimTypes.Name)?.Value ?? throw new UnauthorizedAccessException("Username not found in token.");
         }
 
-        public static string GetTokenRole(this ClaimsPrincipal user)
+        public static UserRole GetTokenRole(this ClaimsPrincipal user)
         {
-            //return user.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
             var role = user.FindFirst(ClaimTypes.Role)?.Value;
-            return string.IsNullOrEmpty(role) ? "Guest" : role;
+            if (string.IsNullOrWhiteSpace(role))
+                return UserRole.Guest;
+            // Try to parse (case-insensitive)
+            if (Enum.TryParse<UserRole>(role, true, out var parsedRole))
+                return parsedRole;
+            // If parsing fails (invalid token role), also fallback
+            return UserRole.Guest;
         }
     }
 }

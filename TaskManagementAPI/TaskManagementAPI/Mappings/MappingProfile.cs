@@ -13,7 +13,7 @@ namespace TaskManagementAPI.Mappings
             // Map from UserRequest DTO to entity
             CreateMap<UserRequest, User>()
                 .ForMember(dest => dest.PasswordHash, opt => opt.Ignore())// PasswordHash will be set separately
-                .ForMember(dest => dest.Role, opt =>opt.MapFrom(src => src.Role)).ReverseMap();
+                .ForMember(dest => dest.Role, opt => opt.Ignore()).ReverseMap();
 
             // Map from entity to UserResponse DTO
             CreateMap<User, UserResponse>();

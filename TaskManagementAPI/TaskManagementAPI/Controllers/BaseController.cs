@@ -10,7 +10,7 @@ namespace TaskManagementAPI.Controllers
     {
         protected int UserIdFromToken => User.GetTokenUserId();
         protected string UsernameFromToken => User.GetTokenUsername();
-        protected string RoleFromToken => User.GetTokenRole();
+        protected UserRole RoleFromToken => User.GetTokenRole();
 
         protected IActionResult HandleResult<T>(Result<T> result)
         {
