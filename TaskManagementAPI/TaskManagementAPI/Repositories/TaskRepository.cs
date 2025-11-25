@@ -10,6 +10,9 @@ namespace TaskManagementAPI.Repositories
         // Method to add new task for a user
         Task<TaskObject> AddNewTaskAsync(TaskObject task, int createId);
 
+        // Method to get task by id
+        Task<TaskObject?> GetTaskByIdAsync(int taskId);
+
         // Method to search task for user with title
         Task<TaskObject?>SearchTaskForUser(int userId, string title);
     }
@@ -22,6 +25,7 @@ namespace TaskManagementAPI.Repositories
             _context = context;
         }
 
+        // Repo method to add new task for a user
         public async Task<TaskObject> AddNewTaskAsync(TaskObject task, int createId)
         {
             _context.OverrideUserId = createId;
@@ -34,6 +38,13 @@ namespace TaskManagementAPI.Repositories
             return task;
         }
 
+        // Repo method to get task by id
+        public async Task<TaskObject?> GetTaskByIdAsync(int taskId)
+        {
+            return await _context.Tasks.FindAsync(taskId);
+        }
+
+        // Repo method to search task for user with title
         public async Task<TaskObject?> SearchTaskForUser(int userId, string title)
         {
             return await _context.Tasks.FirstOrDefaultAsync(t => t.Title == title && 

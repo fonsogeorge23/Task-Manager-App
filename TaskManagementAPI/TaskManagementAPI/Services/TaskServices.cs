@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using Azure.Core;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
 using System.Data;
 using System.Threading.Tasks;
@@ -18,6 +19,8 @@ namespace TaskManagementAPI.Services
         // Method to create task for an user
         Task<Result<TaskResponse>> CreateTaskService(TaskRequest request, int createId);
         Task<Result> DeleteTaskService(int id, int userIdFromToken);
+
+        // Method to view the task for Admin and User
         Task<Result<TaskResponse>> GetTaskByIdService(int id, int userIdFromToken);
         Task<Result<IEnumerable<TaskResponse>>> GetTaskForUserService(int userId, int userIdFromToken, string v);
         Task<Result<object>> GetTaskSummaryService(int userId, int userIdFromToken);
@@ -54,12 +57,15 @@ namespace TaskManagementAPI.Services
             {
                 return Result<TaskResponse>.Failure($"{authorizedUser.Message} - Failed to create new task");
             }
+
             // Validating the new task request
             var validRequest = await ValidateTaskRequest(request);
             if (!validRequest.IsSuccess)
             {
                 return Result<TaskResponse>.Failure($"{validRequest.Message} - No new task created");
             }
+
+            // returning the created task response
             return await AddNewTask(validRequest.Data!, createId);
         }
 
@@ -68,9 +74,23 @@ namespace TaskManagementAPI.Services
             throw new NotImplementedException();
         }
 
-        public Task<Result<TaskResponse>> GetTaskByIdService(int id, int userIdFromToken)
+        // Method to get a user task by Id
+        public async Task<Result<TaskResponse>> GetTaskByIdService(int id, int userIdFromToken)
         {
-            throw new NotImplementedException();
+            // Authorized access - Admin can view any task, User can view own task
+            var userIdForTask = await GetUserFromTask(id);
+            if (!userIdForTask.IsSuccess)
+            {
+                return Result<TaskResponse>.Failure( userIdForTask.Message!);
+            }
+            var authorizedUser = await UserAuthentication(userIdForTask.Data, userIdFromToken);
+            if (!authorizedUser.IsSuccess)
+            {
+                return Result<TaskResponse>.Failure($"{authorizedUser.Message} - Cannot view the task");
+            }
+
+            // returnng the task response
+            return await GetTaskById(id);
         }
 
         public Task<Result<IEnumerable<TaskResponse>>> GetTaskForUserService(int userId, int userIdFromToken, string v)
@@ -119,8 +139,11 @@ namespace TaskManagementAPI.Services
         // 03. GetUser(userId)		                -> Method to get user info from userId
         // 04. GetTaskForUser(userId, title)  	    -> Method to get task with userId and title
         // 05. AddNewTask(validRequest, createId)	-> Method to add new task for a user
+        // 06. GetUserFromTask(taskId)              -> Method to get userId from taskId
+        // 07. GetTaskById(taskId)                  -> Method to get task by taskId
         //******************************************************/
 
+        // Helper method to authenticate user for an action
         private async Task<Result> UserAuthentication(int userId, int actorId)
         {
             var user = await _userService.ValidateAccessUser(userId, actorId);
@@ -131,6 +154,7 @@ namespace TaskManagementAPI.Services
             return Result.Success("Access authorized");
         }
 
+        // Helper method to validate the task request
         private async Task<Result<TaskRequest>> ValidateTaskRequest(TaskRequest request)
         {
             if (request == null)
@@ -168,6 +192,7 @@ namespace TaskManagementAPI.Services
             return Result<TaskRequest>.Success(request);
         }
 
+        // Helper method to get user info from userId
         private async Task<Result<User>> GetUser(int userId)
         {
             var user = await _userService.GetUserById(userId);
@@ -178,6 +203,7 @@ namespace TaskManagementAPI.Services
             return user;
         }
 
+        // Helper method to get task with userId and title
         private async Task<Result<TaskObject>> GetTaskForUser(int userId, string title)
         {
             var user = await _taskRepository.SearchTaskForUser(userId, title);
@@ -188,6 +214,7 @@ namespace TaskManagementAPI.Services
             return Result<TaskObject>.Success(user, "Task exist");
         }
 
+        // Helper method to add new task for a user
         private async Task<Result<TaskResponse>> AddNewTask(TaskRequest request, int createId)
         {
             var newTask = _mapper.Map<TaskObject>(request);
@@ -198,6 +225,29 @@ namespace TaskManagementAPI.Services
             }
             var response = _mapper.Map<TaskResponse>(task);
             return Result<TaskResponse>.Success(response, "Task created successfully");
+        }
+
+        // Helper method to get userId from taskId
+        private async Task<Result<int>> GetUserFromTask(int taskId)
+        {
+            var task = await _taskRepository.GetTaskByIdAsync(taskId);
+            if (task == null)
+            {
+                return Result<int>.Failure(-1, "No task found") ; // Indicating task not found
+            }
+            return Result<int>.Success(task.UserId);
+        }
+
+        // Helper method to get task by taskId
+        private async Task<Result<TaskResponse>> GetTaskById(int taskId)
+        {
+            var task = await _taskRepository.GetTaskByIdAsync(taskId);
+            if (task == null)
+            {
+                return Result<TaskResponse>.Failure("Task not found");
+            }
+            var response = _mapper.Map<TaskResponse>(task);
+            return Result<TaskResponse>.Success(response, "Task retrieved successfully");
         }
     }
 }

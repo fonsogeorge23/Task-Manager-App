@@ -28,7 +28,7 @@ namespace TaskManagementAPI.Controllers
         #endregion
 
         #region RETRIEVE TASKS
-        [Authorize(Roles = "Admin")]
+        [Authorize]
         [HttpGet("{id}")]
         public async Task<IActionResult> GetTaskById(int id)
         {
