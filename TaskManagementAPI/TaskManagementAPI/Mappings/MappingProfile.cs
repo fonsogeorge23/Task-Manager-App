@@ -24,12 +24,7 @@ namespace TaskManagementAPI.Mappings
             CreateMap<TaskRequest, TaskObject>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore()) // Prevent overwriting ID during update
                 .ForMember(dest => dest.Priority, opt => opt.MapFrom(src => src.PriorityLevel))
-                .ForMember(dest => dest.User, opt => opt.Ignore()) // handled via FK (UserId)
-                // Ignore all EF-controlled fields
-                .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
-                .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
-                .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
-                .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore());
+                .ForMember(dest => dest.User, opt => opt.Ignore()) ;// handled via FK (UserId)
 
             // Map from entity to TaskResponse DTO
             CreateMap<TaskObject, TaskResponse>()

@@ -12,17 +12,20 @@ namespace TaskManagementAPI.Services
         // Method to activate an inactive user by Admin
         Task<Result<UserResponse>> ActivateUserService(int userId, int accessId);
 
-        // Method to authenticate user login request
-        Task<Result<LoginResponse>> AuthenticateUserService(LoginRequest request);
-
         // Method to register a new user to the system
         Task<Result<UserResponse>> CreateUserService(UserRequest request, int createUserId);
 
         // Method for admin to get all user data, active or inactive
         Task<Result<IEnumerable<UserResponse>>> GetAllUsersService(bool? active, int accessId);
 
+        // Method to get user info from LoginRequest
+        Task<Result<User>> GetUser(LoginRequest request);
+
+        // Method to return user entity for an userId 
+        Task<Result<User>> GetUserById(int id);
+
         // Method to get user info (Admin can get inactive user info too)
-        Task<Result<UserResponse>> GetUserService(int userId, int accesssId);
+        Task<Result<UserResponse>> GetUserService(int userId, int? accesssId = null);
 
         // Method to remove a user from system by Admin
         Task<Result<string>> HardDeleteUserService(int userId, int accessId);
@@ -32,18 +35,19 @@ namespace TaskManagementAPI.Services
 
         // Method to Update the user Service (Admin can update any user data)
         Task<Result<UserResponse>> UpdateUserService(int targetUserId, UserRequest request, int userIdFromToken);
+
+        // Method to validate the accessId is authorized to access targetUserId info
+        Task<Result> ValidateAccessUser(int targetUserId, int accessUserId);
     }
     public class UserServices : IUserService
     {
         private readonly IUserRepository _userRepository;
         private readonly IMapper _mapper;
-        private readonly IJwtAuthManager _jwtAuthManager;
 
-        public UserServices(IUserRepository userRepository, IMapper mapper, IJwtAuthManager jwtAuthManager)
+        public UserServices(IUserRepository userRepository, IMapper mapper)
         {
             _userRepository = userRepository;
             _mapper = mapper;
-            _jwtAuthManager = jwtAuthManager;
         }
 
         // Method to activate an inactive user by Admin
@@ -70,27 +74,6 @@ namespace TaskManagementAPI.Services
             return await UpdateUserCore(user.Data);
         }
 
-        // Method to authenticate user login request 
-        public async Task<Result<LoginResponse>> AuthenticateUserService(LoginRequest request)
-        {
-            // We validate the login request and get the user
-            var validLoginUser = await ValidateLoginRequest(request);
-            if (!validLoginUser.IsSuccess)
-            {
-                return Result<LoginResponse>.Failure($"{validLoginUser.Message} - Failed Login");
-            }
-
-            // returning the user data with token
-            var response = _mapper.Map<UserResponse>(validLoginUser.Data);
-            var token = await GenerateToken(validLoginUser.Data!);
-            return Result<LoginResponse>.Success(
-                new LoginResponse
-                {
-                    User = response,
-                    Token = token.Data!
-                }, $"{validLoginUser.Message} - Login successfully");
-        }
-
         // Method to register a new user to the system
         public async Task<Result<UserResponse>> CreateUserService(UserRequest request, int createUserId)
         {
@@ -103,7 +86,6 @@ namespace TaskManagementAPI.Services
 
             // Save user to the database and return response
             return await RegisterUser(request, createUserId);
-
         }
 
         // Method for admin to get all user data, active or inactive 
@@ -143,14 +125,44 @@ namespace TaskManagementAPI.Services
             return Result<IEnumerable<UserResponse>>.Success(usersList);
         }
 
-        // Method to get user info (Admin can get inactive user info too)
-        public async Task<Result<UserResponse>> GetUserService(int userId, int accesssId)
+        // Method to get the user info for logging in user(by username / email)
+        public async Task<Result<User>> GetUser(LoginRequest request)
         {
-
-            var validAccess = await ValidateAccessUser(userId, accesssId);
-            if (!validAccess.IsSuccess)
+            var identifier = request.UsernameOrEmail;
+            var user = await GetUserCredentials(request);
+            if (!user.IsSuccess)
             {
-                return Result<UserResponse>.Failure($"{validAccess.Message} - Failed to get user for request");
+                return Result<User>.Failure(user.Message!);
+            }
+            if (!user.Data!.IsActive)
+            {
+                return Result<User>.Failure("Inactive user");
+            }
+            return Result<User>.Success(user.Data!, "Active user exist");
+        }
+
+        // Method to return user entity for an userId 
+        public async Task<Result<User>> GetUserById(int id)
+        {
+            var user = await _userRepository.GetUserByIdAsync(id);
+            if (user == null)
+            {
+                return Result<User>.Failure("User not exist");
+            }
+            return Result<User>.Success(user!, "User exist");
+        }
+
+        // Method to get user info (Admin can get inactive user info too)
+        public async Task<Result<UserResponse>> GetUserService(int userId, int? accesssId = null)
+        {
+            if (accesssId.HasValue)
+            {
+                var validAccess = await ValidateAccessUser(userId, accesssId.Value);
+                if (!validAccess.IsSuccess)
+                {
+                    return Result<UserResponse>.Failure($"{validAccess.Message} - Failed to get user for request");
+                }
+
             }
 
             // returning the user info
@@ -166,7 +178,7 @@ namespace TaskManagementAPI.Services
             // Return mapped response
             return Result<UserResponse>.Success(response);
         }
-
+                
         // Method to remove a user from system by Admin
         public async Task<Result<string>> HardDeleteUserService(int userId, int accessId)
         {
@@ -196,7 +208,6 @@ namespace TaskManagementAPI.Services
         // Method to Update the user Service (Admin can update any user data)
         public async Task<Result<UserResponse>> UpdateUserService(int targetUserId, UserRequest request, int accessId)
         {
-            //throw new NotImplementedException();
             // Check for authorized user info access
             var access = await ValidateAccessUser(targetUserId, accessId);
             if (!access.IsSuccess)
@@ -205,33 +216,54 @@ namespace TaskManagementAPI.Services
             return await UpdateUser(request, targetUserId, accessId);
         }
 
+        // Method to validate the user accessing the info is authorized, if yes return the user
+        public async Task<Result> ValidateAccessUser(int targetUserId, int accessUserId)
+        {
+            if (targetUserId == 0 || accessUserId == 0)
+                return Result.Failure("User Id cannot be 0");
+
+            // If users is active or not
+            var currentUser = await GetActiveUser(accessUserId);
+            var targetUser = await GetUserById(targetUserId);
+
+            if (!currentUser.IsSuccess)
+                return Result.Failure($"{currentUser.Message} - Access Denied");
+
+            if (!targetUser.IsSuccess)
+                return Result.Failure("Target user not found");
+
+            // If the user accessing info is an "Admin" or their own info
+            if (currentUser.Data!.Role == UserRole.Admin)
+                return Result.Success();
+
+            if (targetUser.Data!.Id == accessUserId)
+                return Result.Success();
+
+            return Result.Failure("Unauthorized");
+        }
+
 
         /********************************************************
          *      private helper methods for public methods       *
          ********************************************************/
 
-        // 01. ValidateUserRequest(request)					-> validating the incoming user request
-        // 02. GetUser(request)								-> to get the user from user request(by username / email)
+        // 01. ValidateUserRequest(UserRequest)				-> validating the incoming user request
+        // 02. GetUser(UserRequest)							-> get user info from user request(by username / email)
         // 03. GetUserByUsername(username)					-> using username from UserRequest to get user info
         // 04. GetUserByEmail(email)						-> using email from UserRequest to get user info
         // 05. RegisterUser(request, createUserId)			-> insert user to the database
         // 06. GetHashCode(string)							-> get hash value for a string
         // 07. ValidateRole(role)							-> validate the user request is having a valid role(default: 'Guest')
-        // 08. GetUserById(userId)							-> get user by userId 	
-        // 09. ValidateLoginRequest(request)				-> validating the login request to return the user info
-        // 10. GetUser(LoginRequest)                        -> get user info with login request
-        // 11. VerifyPassword(Password, PasswordHash)		-> verify the incoming password with the system record
-        // 12. GenerateToken(user)							-> generate jwt token using JwtAuthManager.cs
-        // 13. GetActiveUser(userId)						-> get a user info using userId
-        // 14. GetAllActiveUsers(active.Value)				-> get all users by the boolean active value
-        // 15. GetAllUsers()								-> get all users in the system for admin
-        // 16. ValidateAccessUser(userId, accesssId)		-> validate the user accessing the info is authorized, if yes return the user info
-        // 17. UpdateUser(request, targetUserId, accessId)	-> method to validate the request to update a user info
-        // 18. ValidateUsername(username)					-> method to validate Username entering is existing or not 
-        // 19. ValidateEmail(email)							-> method to validate email entering is existing or not
-        // 20. UpdateUserCore(user)							-> method to update the user info in DB
-        // 21. DeleteUser(userId)							-> method to remove the user data from DB
-        // 22. InactivateUser(userId)						-> method to inactivate the user
+        // 08. GetUserCredentials(LoginRequest)             -> get user info for logging in (by username/email and password)
+        // 09. GetActiveUser(userId)						-> get a user info using userId
+        // 10. GetAllActiveUsers(active.Value)				-> get all users by the boolean active value
+        // 11. GetAllUsers()								-> get all users in the system for admin
+        // 12. UpdateUser(request, targetUserId, accessId)	-> method to validate the request to update a user info
+        // 13. ValidateUsername(username)					-> method to validate Username entering is existing or not 
+        // 14. ValidateEmail(email)							-> method to validate email entering is existing or not
+        // 15. UpdateUserCore(user)							-> method to update the user info in DB
+        // 16. DeleteUser(userId)							-> method to remove the user data from DB
+        // 17. InactivateUser(userId)						-> method to inactivate the user
         /********************************************************/
 
         // Helper method to validate the user request
@@ -303,7 +335,7 @@ namespace TaskManagementAPI.Services
             }
             return Result<User>.Success(user);
         }
-        
+
         // Helper method to insert user to the DB
         private async Task<Result<UserResponse>> RegisterUser(UserRequest request, int createUserId)
         {
@@ -330,7 +362,7 @@ namespace TaskManagementAPI.Services
             }
             user.Role = userRole;
 
-            var newUser = await _userRepository.RegisterUserAsync(user);
+            var newUser = await _userRepository.RegisterUserAsync(user, createUserId);
             if (newUser == null)
             {
                 Result<UserResponse>.Failure("User not registered");
@@ -355,64 +387,16 @@ namespace TaskManagementAPI.Services
             return parsedRole;
         }
 
-        // Helper method to get user info by Id
-        private async Task<Result<User>> GetUserById(int id)
+        // Helper method to authenticate a logging user
+        private async Task<Result<User>> GetUserCredentials(LoginRequest request)
         {
-            var user = await _userRepository.GetUserByIdAsync(id);
+            var user = await _userRepository.GetUserCredentialsAsync(request);
             if (user == null)
             {
-                return Result<User>.Failure("User not exist");
+                return Result<User>.Failure("User unidentified");
             }
-            return Result<User>.Success(user!, "User exist");
+            return Result<User>.Success(user);
         }
-
-        // Helper method to validate the incoming login request
-        private async Task<Result<User>> ValidateLoginRequest(LoginRequest request)
-        {
-            if(string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
-            {
-                return Result<User>.Failure("Invalid login request");
-            }
-            var user = await GetUser(request);
-
-            // returning only active user
-            if (!user.IsSuccess)
-            {
-                return Result<User>.Failure($"{user.Message}");
-            }
-
-            var validPassword = VerifyPassword(request.Password, user.Data!.PasswordHash);
-
-            return validPassword ?
-                Result<User>.Success(user.Data!, "Authorized"):
-                Result<User>.Failure("Check credentials");
-        }
-
-        // Helper method to get active user from LoginRequest
-        private async Task<Result<User>> GetUser(LoginRequest loginRequest)
-        {
-            var user = await GetUserByUsername(loginRequest.Username);
-            // only accepting active user to login
-            if (!user.IsSuccess || !user.Data!.IsActive)
-            {
-                return Result<User>.Failure("No user found / Inactive");
-            }
-            return user;
-        }
-
-        // Helper method to verify the password for login
-        private bool VerifyPassword(string plainPassword, string hashedPassword)
-        {
-            return BCrypt.Net.BCrypt.Verify(plainPassword, hashedPassword);
-        }
-        
-        // Helper method to generate token for the login user claims
-        private async Task<Result<string>> GenerateToken(User user)
-        {
-            var token = await _jwtAuthManager.GenerateToken(user);            
-            return Result<string>.Success(token);
-        }
-
         // Helper method to validate a active user
         private async Task<Result<User>> GetActiveUser(int userId)
         {
@@ -436,32 +420,6 @@ namespace TaskManagementAPI.Services
         {
             var user = await _userRepository.GetAllUsersAsync(); 
             return Result<IEnumerable<User>>.Success(user);
-        }
-
-        // Helper method to validate the user accessing the info is authorized
-        private async Task<Result> ValidateAccessUser(int targetUserId, int accessUserId)
-        {
-            if(targetUserId == 0 || accessUserId == 0)
-                return Result.Failure("User Id cannot be 0");
-
-            // If users is active or not
-            var currentUser = await GetActiveUser(accessUserId);
-            var targetUser = await GetUserById(targetUserId);
-
-            if (!currentUser.IsSuccess)
-                return Result.Failure($"{currentUser.Message} - Access Denied");
-
-            if (!targetUser.IsSuccess)
-                return Result.Failure("Target user not found");
-
-            // If the user accessing info is an "Admin" or their own info
-            if (currentUser.Data!.Role == UserRole.Admin)
-                return Result.Success();
-
-            if (targetUser.Data!.Id == accessUserId)
-                return Result.Success();
-
-            return Result.Failure("Unauthorized");
         }
 
         // Helper method to update user info from request
@@ -598,5 +556,6 @@ namespace TaskManagementAPI.Services
             user.Data!.IsActive = false;
             return await UpdateUserCore(user.Data!);
         }
+
     }
 }

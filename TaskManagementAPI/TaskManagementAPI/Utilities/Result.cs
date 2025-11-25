@@ -16,10 +16,10 @@
             Data = data;
             IsSuccess = true;
         }
-        private Result(T data, string message)
+        private Result(bool success, T data, string message)
         {
+            IsSuccess = success;
             Data = data;
-            IsSuccess = true;
             Message = message;
         }
 
@@ -33,10 +33,11 @@
 
         // Static factory method for success
         public static Result<T> Success(T data) => new Result<T>(data);
-        public static Result<T> Success(T data, string message) => new Result<T>(data, message);
+        public static Result<T> Success(T data, string message) => new Result<T>(true, data, message);
 
         // Static factory method for failure
         public static Result<T> Failure (string errorMessage) => new Result<T>(errorMessage);
+        public static Result<T> Failure(T data, string message) => new Result<T>(false, data, message);
     }
 
     // Update the Message property to be nullable to resolve CS8618

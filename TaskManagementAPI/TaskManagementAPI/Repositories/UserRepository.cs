@@ -9,9 +9,7 @@ namespace TaskManagementAPI.Repositories
 {
     public interface IUserRepository
     {
-        Task<User> RegisterUserAsync(User user);
-
-        Task<User?> GetActiveUserByIdAsync(int id, bool? active = true);
+        Task<User> RegisterUserAsync(User user, int createId);
         Task<User?> GetUserByIdAsync(int id);
         Task<User?> GetUserByUsernameAsync(string username);
         Task<User?> GetUserByEmailAsync(string email);
@@ -30,10 +28,22 @@ namespace TaskManagementAPI.Repositories
             _context = context;
         }
 
-        public async Task<User> RegisterUserAsync(User user)
+        public async Task<User> RegisterUserAsync(User user, int createId)
         {
+            if(createId > 0)
+            {
+                _context.OverrideUserId = createId;
+            }
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
+
+            if(createId == 0)
+            {
+                _context.Entry(user).State = EntityState.Modified;
+                _context.OverrideUserId = user.Id;
+                user.CreatedBy = user.Id;
+                await _context.SaveChangesAsync();
+            }
             return user;
         }
         public async Task<User?> GetUserByEmailAsync(string email)
@@ -46,11 +56,6 @@ namespace TaskManagementAPI.Repositories
             return await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
         }
 
-        public async Task<User?> GetActiveUserByIdAsync(int id, bool? active = true)
-        {
-            return await _context.Users.FirstOrDefaultAsync(u => u.Id == id && u.IsActive == active);
-        }
-
         public async Task<User?> GetUserByIdAsync(int id)
         {
             return await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
@@ -58,8 +63,11 @@ namespace TaskManagementAPI.Repositories
 
         public async Task<User?> GetUserCredentialsAsync(LoginRequest request)
         {
-            return await _context.Users.FirstOrDefaultAsync(u =>
-            EF.Functions.Collate(u.Username, "SQL_Latin1_General_CP1_CS_AS") == request.Username && u.IsActive == true);
+            return await _context.Users.FirstOrDefaultAsync(u =>u.IsActive &&
+                    (
+                        EF.Functions.Collate(u.Username, "SQL_Latin1_General_CP1_CS_AS") == request.UsernameOrEmail ||
+                        EF.Functions.Collate(u.Email, "SQL_Latin1_General_CP1_CS_AS") == request.UsernameOrEmail
+                    ));
         }
 
         public async Task<IEnumerable<User>> GetAllUsersAsync()

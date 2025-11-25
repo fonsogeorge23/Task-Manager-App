@@ -10,6 +10,7 @@ namespace TaskManagementAPI.Data
 
         public DbSet<TaskObject> Tasks { get; set; }
         public DbSet<User> Users { get; set; }
+        public int? OverrideUserId { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -59,6 +60,9 @@ namespace TaskManagementAPI.Data
 
         private int GetCurrentUserId()
         {
+            if (OverrideUserId.HasValue && OverrideUserId.Value > 0)
+                return OverrideUserId.Value;
+
             try
             {
                 var httpContext = _httpContextAccessor?.HttpContext;

@@ -1,10 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Collections.Generic;
 using TaskManagementAPI.DTOs.Requests;
 using TaskManagementAPI.DTOs.Responses;
 using TaskManagementAPI.Services;
-using TaskManagementAPI.Utilities;
 
 namespace TaskManagementAPI.Controllers
 {
@@ -20,6 +18,7 @@ namespace TaskManagementAPI.Controllers
         }
 
         #region CREATE TASK FOR USER
+        [Authorize]
         [HttpPost("create")]
         public async Task<IActionResult> CreateTask([FromBody] TaskRequest request)
         {
@@ -29,7 +28,7 @@ namespace TaskManagementAPI.Controllers
         #endregion
 
         #region RETRIEVE TASKS
-        [Authorize]
+        [Authorize(Roles = "Admin")]
         [HttpGet("{id}")]
         public async Task<IActionResult> GetTaskById(int id)
         {

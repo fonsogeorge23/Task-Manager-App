@@ -38,6 +38,9 @@ namespace TaskManagementAPI.Utilities
             // User repository and service
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IUserService, UserServices>();
+            
+            // Authorize an user 
+            services.AddScoped<IAuthorizationService, AuthorizationService>();
 
             // Task repository and service
             services.AddScoped<ITaskRepository, TaskRepository>();
@@ -57,7 +60,7 @@ namespace TaskManagementAPI.Utilities
 
             // Retrieve JwtSettings to configure authentication
             var jwtSettings = config.GetSection("JwtSettings").Get<JwtSettings>();
-            var secretKey = Encoding.UTF8.GetBytes(jwtSettings.SecretKey);
+            var secretKey = Encoding.UTF8.GetBytes(jwtSettings!.SecretKey);
 
             services.AddAuthentication(options =>
             {
