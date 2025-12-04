@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TaskManagementAPI.Data;
 
@@ -11,9 +12,11 @@ using TaskManagementAPI.Data;
 namespace TaskManagementAPI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251203053104_InitialCreate")]
+    partial class InitialCreate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -105,59 +108,6 @@ namespace TaskManagementAPI.Migrations
                     b.ToTable("Projects");
                 });
 
-            modelBuilder.Entity("TaskManagementAPI.Models.ProjectMember", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("AssignedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("AssignedBy")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("CreatedBy")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("ProjectId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ProjectRole")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("UpdatedBy")
-                        .HasColumnType("int");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProjectId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("ProjectMembers");
-                });
-
             modelBuilder.Entity("TaskManagementAPI.Models.TaskComment", b =>
                 {
                     b.Property<int>("Id")
@@ -218,7 +168,7 @@ namespace TaskManagementAPI.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("AssignedToUserId")
+                    b.Property<int>("AssignedToUserId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
@@ -267,6 +217,9 @@ namespace TaskManagementAPI.Migrations
                     b.Property<int?>("UpdatedBy")
                         .HasColumnType("int");
 
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AssignedToUserId");
@@ -275,56 +228,9 @@ namespace TaskManagementAPI.Migrations
 
                     b.HasIndex("TaskVisibilityId");
 
-                    b.ToTable("Tasks");
-                });
-
-            modelBuilder.Entity("TaskManagementAPI.Models.TaskUser", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("AssignedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("AssignedBy")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("CreatedBy")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
-
-                    b.Property<int>("TaskId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("UpdatedBy")
-                        .HasColumnType("int");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TaskId");
-
                     b.HasIndex("UserId");
 
-                    b.ToTable("TaskUsers");
+                    b.ToTable("Tasks");
                 });
 
             modelBuilder.Entity("TaskManagementAPI.Models.TaskVisibility", b =>
@@ -372,6 +278,9 @@ namespace TaskManagementAPI.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
+
+                    b.Property<bool>("IsExternal")
+                        .HasColumnType("bit");
 
                     b.Property<string>("PasswordHash")
                         .HasColumnType("nvarchar(max)");
@@ -423,25 +332,6 @@ namespace TaskManagementAPI.Migrations
                     b.Navigation("Manager");
                 });
 
-            modelBuilder.Entity("TaskManagementAPI.Models.ProjectMember", b =>
-                {
-                    b.HasOne("TaskManagementAPI.Models.Project", "Project")
-                        .WithMany("ProjectMembers")
-                        .HasForeignKey("ProjectId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("TaskManagementAPI.Models.User", "User")
-                        .WithMany("ProjectMembers")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Project");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("TaskManagementAPI.Models.TaskComment", b =>
                 {
                     b.HasOne("TaskManagementAPI.Models.User", "Author")
@@ -470,7 +360,8 @@ namespace TaskManagementAPI.Migrations
                     b.HasOne("TaskManagementAPI.Models.User", "AssignedToUser")
                         .WithMany()
                         .HasForeignKey("AssignedToUserId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("TaskManagementAPI.Models.Project", "Project")
                         .WithMany("Tasks")
@@ -484,6 +375,10 @@ namespace TaskManagementAPI.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("TaskManagementAPI.Models.User", null)
+                        .WithMany("TasksAssigned")
+                        .HasForeignKey("UserId");
+
                     b.Navigation("AssignedToUser");
 
                     b.Navigation("Project");
@@ -491,37 +386,14 @@ namespace TaskManagementAPI.Migrations
                     b.Navigation("Visibility");
                 });
 
-            modelBuilder.Entity("TaskManagementAPI.Models.TaskUser", b =>
-                {
-                    b.HasOne("TaskManagementAPI.Models.TaskObject", "Task")
-                        .WithMany("TaskUsers")
-                        .HasForeignKey("TaskId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("TaskManagementAPI.Models.User", "User")
-                        .WithMany("TaskUsers")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Task");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("TaskManagementAPI.Models.Project", b =>
                 {
-                    b.Navigation("ProjectMembers");
-
                     b.Navigation("Tasks");
                 });
 
             modelBuilder.Entity("TaskManagementAPI.Models.TaskObject", b =>
                 {
                     b.Navigation("Comments");
-
-                    b.Navigation("TaskUsers");
                 });
 
             modelBuilder.Entity("TaskManagementAPI.Models.TaskVisibility", b =>
@@ -533,11 +405,9 @@ namespace TaskManagementAPI.Migrations
                 {
                     b.Navigation("Comments");
 
-                    b.Navigation("ProjectMembers");
-
                     b.Navigation("ProjectsManaging");
 
-                    b.Navigation("TaskUsers");
+                    b.Navigation("TasksAssigned");
                 });
 #pragma warning restore 612, 618
         }

@@ -12,9 +12,10 @@ namespace TaskManagementAPI.Data
         public AppDbContext CreateDbContext(string[] args)
         {
             // Build configuration manually since Program.cs is not executed at design time
-            IConfigurationRoot configuration = new ConfigurationBuilder()
+            var configuration = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .AddJsonFile("appsettings.json", optional: false)
+                .AddJsonFile("appsettings.Development.json", optional: true)
                 .Build();
 
             // Retrieve connection string 

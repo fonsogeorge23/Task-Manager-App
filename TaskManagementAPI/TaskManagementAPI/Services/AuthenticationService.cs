@@ -7,18 +7,18 @@ using TaskManagementAPI.Utilities;
 
 namespace TaskManagementAPI.Services
 {
-    public interface IAuthorizationService
+    public interface IAuthenticationService
     {
         // Method to authenticate user login request
-        Task<Result<LoginResponse>> AuthenticateUserService(LoginRequest request);
+        Task<Result<LoginResponse>> AuthenticateLoginUser(LoginRequest request);
     }
-    public class AuthorizationService : IAuthorizationService
+    public class AuthenticationService : IAuthenticationService
     {
         private readonly IUserService _userService;
         private readonly IJwtAuthManager _jwtAuthManager;
         private readonly IMapper _mapper;
 
-        public AuthorizationService(IUserService userService, IJwtAuthManager jwtAuthManager, IMapper mapper)
+        public AuthenticationService(IUserService userService, IJwtAuthManager jwtAuthManager, IMapper mapper)
         {
             _userService = userService;
             _jwtAuthManager = jwtAuthManager;
@@ -26,7 +26,7 @@ namespace TaskManagementAPI.Services
         }
 
         // Method to authenticate user login request 
-        public async Task<Result<LoginResponse>> AuthenticateUserService(LoginRequest request)
+        public async Task<Result<LoginResponse>> AuthenticateLoginUser(LoginRequest request)
         {
             // We validate the login request and get the user
             var validLoginUser = await ValidateLoginRequest(request);

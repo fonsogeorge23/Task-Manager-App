@@ -10,6 +10,9 @@ namespace TaskManagementAPI.Repositories
         // Method to add new task for a user
         Task<TaskObject> AddNewTaskAsync(TaskObject task, int createId);
 
+        // Method to get all tasks for a user
+        Task<IEnumerable<TaskObject>> GetAllTasksForUserAsync(int userId);
+
         // Method to get task by id
         Task<TaskObject?> GetTaskByIdAsync(int taskId);
 
@@ -38,6 +41,14 @@ namespace TaskManagementAPI.Repositories
             return task;
         }
 
+        // Repo method to get all tasks for a user
+        public async Task<IEnumerable<TaskObject>> GetAllTasksForUserAsync(int userId)
+        {
+            return await _context.Tasks
+                                 .Where(t => t.AssignedToUserId == userId)
+                                 .ToListAsync();
+        }
+
         // Repo method to get task by id
         public async Task<TaskObject?> GetTaskByIdAsync(int taskId)
         {
@@ -48,7 +59,7 @@ namespace TaskManagementAPI.Repositories
         public async Task<TaskObject?> SearchTaskForUser(int userId, string title)
         {
             return await _context.Tasks.FirstOrDefaultAsync(t => t.Title == title && 
-                                                    t.UserId == userId);
+                                                    t.AssignedToUserId == userId);
         }
     }
 }

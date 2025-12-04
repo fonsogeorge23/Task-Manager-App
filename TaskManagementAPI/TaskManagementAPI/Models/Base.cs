@@ -5,18 +5,22 @@ namespace TaskManagementAPI.Models
     public abstract class Base
     {
         [Required]
-        public DateTime CreatedDate { get; set; } 
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         [Required]
         public int CreatedBy { get; set; }
 
-        [Required]
-        public DateTime? UpdatedDate { get; set; }
+        public DateTime? UpdatedAt { get; set; }
 
-        [Required]
         public int? UpdatedBy { get; set; }
 
         [Required]
-        public bool IsActive { get; set; }
+        public bool IsActive { get; set; } = true;
+
+        /// <summary>
+        /// Row version for optimistic concurrency control.
+        /// </summary>
+        [Timestamp]
+        public byte[]? RowVersion { get; set; }
     }
 }

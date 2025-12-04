@@ -5,7 +5,6 @@ using TaskManagementAPI.DTOs.Requests;
 using TaskManagementAPI.DTOs.Responses;
 using TaskManagementAPI.Services;
 using TaskManagementAPI.Utilities;
-using IAuthorizationService = TaskManagementAPI.Services.IAuthorizationService;
 using LoginRequest = TaskManagementAPI.DTOs.Requests.LoginRequest;
 
 namespace TaskManagementAPI.Controllers
@@ -15,12 +14,12 @@ namespace TaskManagementAPI.Controllers
     public class UsersController : BaseController
     {
         private readonly IUserService _userService;
-        private readonly IAuthorizationService _authorizationService;
+        private readonly IAuthenticationService _authenticationService;
 
-        public UsersController(IUserService userService, IAuthorizationService authorizationService)
+        public UsersController(IUserService userService, IAuthenticationService authenticationService)
         {
             _userService = userService;
-            _authorizationService = authorizationService;
+            _authenticationService = authenticationService;
         }
 
         #region REGISTER NEW USER
@@ -43,7 +42,7 @@ namespace TaskManagementAPI.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginRequest request)
         {
-            var authentication = await _authorizationService.AuthenticateUserService(request);
+            var authentication = await _authenticationService.AuthenticateLoginUser(request);
             return HandleResult(authentication);
         }
         #endregion

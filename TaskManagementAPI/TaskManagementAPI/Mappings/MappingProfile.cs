@@ -24,13 +24,13 @@ namespace TaskManagementAPI.Mappings
             CreateMap<TaskRequest, TaskObject>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore()) // Prevent overwriting ID during update
                 .ForMember(dest => dest.Priority, opt => opt.MapFrom(src => src.PriorityLevel))
-                .ForMember(dest => dest.User, opt => opt.Ignore()) ;// handled via FK (UserId)
+                .ForMember(dest => dest.AssignedToUser, opt => opt.Ignore()) ;// handled via FK (UserId)
 
             // Map from entity to TaskResponse DTO
             CreateMap<TaskObject, TaskResponse>()
                 .ForMember(dest => dest.Priority, opt => opt.MapFrom(src => src.Priority))
-                .ForMember(dest => dest.Owner, opt => opt.MapFrom(src => src.User.Username))
-                .ForMember(dest => dest.CreateDate, opt => opt.MapFrom(src => src.CreatedDate));
+                .ForMember(dest => dest.Owner, opt => opt.MapFrom(src => src.AssignedToUser.Username))
+                .ForMember(dest => dest.CreateDate, opt => opt.MapFrom(src => src.CreatedAt));
             #endregion
         }
     }

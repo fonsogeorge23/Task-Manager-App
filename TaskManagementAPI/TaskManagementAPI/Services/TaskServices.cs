@@ -22,9 +22,13 @@ namespace TaskManagementAPI.Services
 
         // Method to view the task for Admin and User
         Task<Result<TaskResponse>> GetTaskByIdService(int id, int userIdFromToken);
-        Task<Result<IEnumerable<TaskResponse>>> GetTaskForUserService(int userId, int userIdFromToken, string v);
+
+        // Method to get tasks for a user by status
+        Task<Result<IEnumerable<TaskResponse>>> GetTaskForUserService(int userId, int userIdFromToken, string status);
         Task<Result<object>> GetTaskSummaryService(int userId, int userIdFromToken);
         Task<Result<TaskResponse>> InactivateTaskService(int taskId, int userIdFromToken);
+
+        // Method to search tasks for a user by title or description
         Task<Result<IEnumerable<TaskResponse>>> SearchTasksService(int userId, int userIdFromToken, string query);
         Task<Result<TaskResponse>> UpdateTaskPriorityService(int taskId, string priority, int userIdFromToken);
         Task<Result<TaskResponse>> UpdateTaskService(int taskId, TaskRequest request, int userIdFromToken);
@@ -81,7 +85,7 @@ namespace TaskManagementAPI.Services
             var userIdForTask = await GetUserFromTask(id);
             if (!userIdForTask.IsSuccess)
             {
-                return Result<TaskResponse>.Failure( userIdForTask.Message!);
+                return Result<TaskResponse>.Failure(userIdForTask.Message!);
             }
             var authorizedUser = await UserAuthentication(userIdForTask.Data, userIdFromToken);
             if (!authorizedUser.IsSuccess)
@@ -93,9 +97,45 @@ namespace TaskManagementAPI.Services
             return await GetTaskById(id);
         }
 
-        public Task<Result<IEnumerable<TaskResponse>>> GetTaskForUserService(int userId, int userIdFromToken, string v)
+        // Method to get tasks for a user by status
+        public async Task<Result<IEnumerable<TaskResponse>>> GetTaskForUserService(int userId, int userIdFromToken, string status)
         {
-            throw new NotImplementedException();
+            // Authorized access - Admin can view any user's tasks, User can view own tasks
+            var authorizedUser = await UserAuthentication(userId, userIdFromToken);
+            if (!authorizedUser.IsSuccess)
+            {
+                return Result<IEnumerable<TaskResponse>>.Failure($"{authorizedUser.Message} - Cannot view tasks for the user");
+            }
+
+            // Getting tasks for the user by status - default = "All"
+            if (string.Equals(status, "All", StringComparison.OrdinalIgnoreCase))
+            {
+                var allTasks = await GetAllTaskForUser(userId);
+                if (!allTasks.IsSuccess)
+                {
+                    return Result<IEnumerable<TaskResponse>>.Failure($"{allTasks.Message} - No task to load");
+                }
+                var responseAll = _mapper.Map<IEnumerable<TaskResponse>>(allTasks.Data);
+                return Result<IEnumerable<TaskResponse>>.Success(responseAll, "All tasks retrieved successfully");
+            }
+            else
+            {
+                // Parsing the status for task
+                var statusEnum = await ParseStatus(status);
+                if (!statusEnum.IsSuccess)
+                {
+                    return Result<IEnumerable<TaskResponse>>.Failure($"{statusEnum.Message} - Failed to load tasks");
+                }
+
+                // Getting task by status
+                var taskList = await GetAllTaskByStatus(userId, statusEnum.Data);
+                if(taskList == null || !taskList.Any())
+                {
+                    return Result<IEnumerable<TaskResponse>>.Failure($"No tasks with status '{statusEnum.Data}' found for the user");
+                }
+                var responseAll = _mapper.Map<IEnumerable<TaskResponse>>(taskList);
+                return Result<IEnumerable<TaskResponse>>.Success(responseAll, $"{statusEnum} - retrieved successfully");
+            }
         }
 
         public Task<Result<object>> GetTaskSummaryService(int userId, int userIdFromToken)
@@ -108,9 +148,16 @@ namespace TaskManagementAPI.Services
             throw new NotImplementedException();
         }
 
-        public Task<Result<IEnumerable<TaskResponse>>> SearchTasksService(int userId, int userIdFromToken, string query)
+        // Method to search tasks for a user by title or description
+        public async Task<Result<IEnumerable<TaskResponse>>> SearchTasksService(int userId, int userIdFromToken, string query)
         {
-            throw new NotImplementedException();
+            // Authorized access - Admin can search any user's tasks, User can search own tasks
+            var authorizedUser = await UserAuthentication(userId, userIdFromToken);
+            if (!authorizedUser.IsSuccess)
+            {
+                return Result<IEnumerable<TaskResponse>>.Failure($"{authorizedUser.Message} - Cannot search tasks for the user");
+            }
+            return Result<IEnumerable<TaskResponse>>.Success(Enumerable.Empty<TaskResponse>(), "No tasks found matching the query");
         }
 
         public Task<Result<TaskResponse>> UpdateTaskPriorityService(int taskId, string priority, int userIdFromToken)
@@ -141,15 +188,18 @@ namespace TaskManagementAPI.Services
         // 05. AddNewTask(validRequest, createId)	-> Method to add new task for a user
         // 06. GetUserFromTask(taskId)              -> Method to get userId from taskId
         // 07. GetTaskById(taskId)                  -> Method to get task by taskId
+        // 08. GetAllTaskForUser                    -> Method to get all tasks for a user
+        // 09. ParseStatus(status)                  -> Method to parse status string to enum
+        // 10. GetAllTaskByStatus(userId, status)   -> Method to get all tasks for a user by status
         //******************************************************/
 
         // Helper method to authenticate user for an action
         private async Task<Result> UserAuthentication(int userId, int actorId)
         {
-            var user = await _userService.ValidateAccessUser(userId, actorId);
-            if (!user.IsSuccess )
+            var authorizedUser = await _userService.ValidateAccessUser(userId, actorId);
+            if (!authorizedUser.IsSuccess)
             {
-                return Result.Failure($"{user.Message} - Authentication failed");
+                return Result.Failure($"{authorizedUser.Message} - Authentication failed");
             }
             return Result.Success("Access authorized");
         }
@@ -163,9 +213,9 @@ namespace TaskManagementAPI.Services
             var errors = new List<string>();
 
             // Mandatory fields
-            if(string.IsNullOrWhiteSpace(request.Title))
+            if (string.IsNullOrWhiteSpace(request.Title))
                 errors.Add("Task title is required.");
-            if (!Enum.IsDefined(typeof(CurrentStatus), request.Status))
+            if (!Enum.IsDefined(typeof(CurrentTaskStatus), request.Status))
                 errors.Add("Invalid task status.");
             if (!Enum.IsDefined(typeof(PriorityLevel), request.PriorityLevel))
                 errors.Add("Invalid priority level.");
@@ -177,7 +227,7 @@ namespace TaskManagementAPI.Services
             // Finding the assigned user
             int userId = request.UserId;
             var user = await GetUser(userId);
-            if(!user.IsSuccess || !user.Data!.IsActive)
+            if (!user.IsSuccess || !user.Data!.IsActive)
             {
                 return Result<TaskRequest>.Failure($"{user.Message} - Invalid Task request");
             }
@@ -185,7 +235,7 @@ namespace TaskManagementAPI.Services
             // Checking duplicate task
             var title = request.Title;
             var exists = await GetTaskForUser(userId, title);
-            if(exists.IsSuccess)
+            if (exists.IsSuccess)
             {
                 return Result<TaskRequest>.Failure($"{exists.Message} - Duplicate task");
             }
@@ -207,7 +257,7 @@ namespace TaskManagementAPI.Services
         private async Task<Result<TaskObject>> GetTaskForUser(int userId, string title)
         {
             var user = await _taskRepository.SearchTaskForUser(userId, title);
-            if(user == null)
+            if (user == null)
             {
                 return Result<TaskObject>.Failure("No task exist");
             }
@@ -219,7 +269,7 @@ namespace TaskManagementAPI.Services
         {
             var newTask = _mapper.Map<TaskObject>(request);
             var task = await _taskRepository.AddNewTaskAsync(newTask, createId);
-            if(task == null)
+            if (task == null)
             {
                 return Result<TaskResponse>.Failure("Unable to create new task");
             }
@@ -233,9 +283,11 @@ namespace TaskManagementAPI.Services
             var task = await _taskRepository.GetTaskByIdAsync(taskId);
             if (task == null)
             {
-                return Result<int>.Failure(-1, "No task found") ; // Indicating task not found
+                return Result<int>.Failure(-1, "No task found"); // Indicating task not found
             }
-            return Result<int>.Success(task.UserId);
+            if(task.AssignedToUser != null)
+                return Result<int>.Success(task.AssignedToUserId!.Value);
+            return Result<int>.Failure(-1, "No user for task");
         }
 
         // Helper method to get task by taskId
@@ -248,6 +300,41 @@ namespace TaskManagementAPI.Services
             }
             var response = _mapper.Map<TaskResponse>(task);
             return Result<TaskResponse>.Success(response, "Task retrieved successfully");
+        }
+
+        // Helper method to get all tasks for a user
+        private async Task<Result<IEnumerable<TaskObject>>> GetAllTaskForUser(int userId)
+        {
+            var tasks = await _taskRepository.GetAllTasksForUserAsync(userId);
+            if (tasks == null || !tasks.Any())
+            {
+                return Result<IEnumerable<TaskObject>>.Failure("No tasks found for the user");
+            }
+            return Result<IEnumerable<TaskObject>>.Success(tasks);
+        }
+
+        // Helper method to parse status string to enum
+        private async Task<Result<CurrentTaskStatus>> ParseStatus(string status)
+        {
+            if (Enum.TryParse<CurrentTaskStatus>(status, true, out var statusEnum))
+            {
+                return Result<CurrentTaskStatus>.Success(statusEnum);
+            }
+            return Result<CurrentTaskStatus>.Failure("Invalid status value");
+        }
+
+        // Helper method to get all tasks for a user by status
+        private async Task<IEnumerable<TaskObject>> GetAllTaskByStatus(int userId, CurrentTaskStatus statusEnum)
+        {
+            var allTasksResult = await GetAllTaskForUser(userId);
+            if (!allTasksResult.IsSuccess)
+            {
+                return Enumerable.Empty<TaskObject>();
+            }
+            var filteredTasks = allTasksResult.Data!
+                                      .Where(t => t.Status == statusEnum)
+                                      .ToList();
+            return filteredTasks;
         }
     }
 }

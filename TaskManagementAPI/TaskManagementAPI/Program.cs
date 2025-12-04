@@ -1,72 +1,31 @@
-﻿using Microsoft.OpenApi.Models;
-using TaskManagementAPI.Utilities;
+﻿using TaskManagementAPI.Utilities;
 
 var builder = WebApplication.CreateBuilder(args);
+ 
+// ------------------------------------------------------
+// 1. Register Services
+// ------------------------------------------------------
 
-#region 1. Register Services
-// Add Custom Controllers with JSON options
-builder.Services.AddCustomControllers();
-
-// Register HttpContext accessor
 builder.Services.AddHttpContextAccessor();
-
-// Add Database context
+builder.Services.AddCustomControllers();
+builder.Services.AddCorsPolicy();
 builder.Services.AddDatabase(builder.Configuration);
-
-// Add Repositories and Services
-builder.Services.AddRepositoriesAndServices();
-
-// Add JWT Authentication
+builder.Services.AddRepositories();
+builder.Services.AddServices();
 builder.Services.AddJwtAuthentication(builder.Configuration);
+builder.Services.AddAutoMapperConfig();
+builder.Services.AddSwaggerWithJwt();
 
-// Add AutoMapper
-builder.Services.AddEndpointsApiExplorer();
-
-// Add Swagger + JWT Configuration
-builder.Services.AddSwaggerGen(options =>
-{
-    options.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "Task Management API",
-        Version = "v1",
-        Description = "A secure API for managing users and tasks with JWT authentication"
-    });
-
-    // Add JWT Bearer definition
-    var jwtSecurityScheme = new OpenApiSecurityScheme
-    {
-        Scheme = "bearer",
-        BearerFormat = "JWT",
-        Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.Http,
-        Description = "Enter 'Bearer' followed by your JWT token. Example: **Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9**",
-
-        Reference = new OpenApiReference
-        {
-            Id = "Bearer",
-            Type = ReferenceType.SecurityScheme
-        }
-    };
-
-    options.AddSecurityDefinition("Bearer", jwtSecurityScheme);
-
-    //Require token for all endpoints (optional but recommended)
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            jwtSecurityScheme,
-            Array.Empty<string>()
-        }
-    });
-});
-#endregion
+// ------------------------------------------------------
+// 2. Build app
+// ------------------------------------------------------
 
 var app = builder.Build();
 
-#region 2. Configure Middleware
+// ------------------------------------------------------
+// 3. Middleware 
+// ------------------------------------------------------
 
-// Configure HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -74,14 +33,11 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseCors("AllowFrontend");
+app.UseCors("AllowAll");
 
-//Important: Authentication before Authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-
-#endregion
 
 await app.RunAsync();

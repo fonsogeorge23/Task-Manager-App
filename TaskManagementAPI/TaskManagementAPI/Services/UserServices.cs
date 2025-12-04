@@ -357,7 +357,7 @@ namespace TaskManagementAPI.Services
                 }
                 else
                 {
-                    userRole = UserRole.User;
+                    userRole = UserRole.Guest;
                 }
             }
             user.Role = userRole;
@@ -485,7 +485,7 @@ namespace TaskManagementAPI.Services
                     // Non-admins cannot upgrade to Admin
                     if (requestedRole == UserRole.Admin)
                     {
-                        entity.Role = UserRole.User;   // force safe fallback
+                        entity.Role = UserRole.Guest;   // force safe fallback
                     }
                     else
                     {

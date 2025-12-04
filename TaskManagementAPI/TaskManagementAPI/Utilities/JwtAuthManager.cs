@@ -20,13 +20,11 @@ namespace TaskManagementAPI.Utilities
 
     public class JwtAuthManager : IJwtAuthManager
     {
-        private readonly string _key;
         private readonly JwtSettings _jwtSettings;
 
         public JwtAuthManager(IOptions<JwtSettings> jwtSettings)
         {
             _jwtSettings = jwtSettings.Value;
-            _key = _jwtSettings.SecretKey;
         }
 
         /// <summary>
@@ -34,8 +32,17 @@ namespace TaskManagementAPI.Utilities
         /// </summary>
         public Task<string> GenerateToken(User user)
         {
+            // Resolve the current secret at token generation time
+            var secretFromEnv = Environment.GetEnvironmentVariable("JWT_SECRET");
+            var finalSecret = !string.IsNullOrWhiteSpace(secretFromEnv)
+                                ? secretFromEnv
+                                : _jwtSettings.SecretKey;
+
+            if (string.IsNullOrWhiteSpace(finalSecret))
+                throw new Exception("JWT secret is missing. Set 'JWT_SECRET' or provide it in configuration.");
+
+            var tokenKey = Encoding.UTF8.GetBytes(finalSecret);
             var tokenHandler = new JwtSecurityTokenHandler();
-            var tokenKey = Encoding.UTF8.GetBytes(_key);
 
             var claims = new[]
             {
@@ -60,7 +67,6 @@ namespace TaskManagementAPI.Utilities
             var token = tokenHandler.CreateToken(tokenDescriptor);
             string tokenString = tokenHandler.WriteToken(token);
 
-            // Since token generation is a fast CPU-bound operation, we use Task.FromResult
             // to return the value as a completed Task, satisfying the async interface.
             return Task.FromResult(tokenString);
         }
